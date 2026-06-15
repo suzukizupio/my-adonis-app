@@ -21,7 +21,9 @@ export default class IteneClient {
   ) {}
 
   async fetchConstructions(offset = 0, limit = this.config.syncLimit): Promise<unknown> {
-    const url = new URL(`${this.config.apiBaseUrl}/dashboard/constructions`)
+    // `dashboard/constructions` は status=2(対応済み)のみ返すため、全状態(未対応0/対応中1/
+    // 対応済み2/完了3)を返す `constructions` を使う。offsetページングは有効。
+    const url = new URL(`${this.config.apiBaseUrl}/constructions`)
     url.searchParams.set('page', String(Math.floor(offset / limit) + 1))
     url.searchParams.set('offset', String(offset))
     url.searchParams.set('limit', String(limit))

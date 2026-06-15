@@ -14,6 +14,10 @@ import {
   type JsonObject,
 } from '#services/itene_mapper'
 
+// status=3 は本物の予約画面に表示されない状態（完了/クローズ等）のため同期から除外する。
+// 本物の予約画面は status 0(未対応)/1(対応中)/2(対応済み) の合計152件と一致する。
+const HIDDEN_CONSTRUCTION_STATUS = '3'
+
 type SyncOptions = {
   dryRun?: boolean
   constructionId?: number | string
@@ -30,7 +34,9 @@ export default class IteneSyncService {
   constructor(private client: IteneClient) {}
 
   async syncConstructions(options: SyncOptions = {}): Promise<SyncResult> {
-    const records = toArray(await this.client.fetchAllConstructions())
+    const records = toArray(await this.client.fetchAllConstructions()).filter(
+      (record) => String(record.status) !== HIDDEN_CONSTRUCTION_STATUS
+    )
 
     if (options.dryRun) {
       return { constructions: records.length, rooms: 0, reservations: 0, workSlots: 0 }
