@@ -145,7 +145,7 @@
             </thead>
             <tbody>
               @each(slot in reservationTimetable.slots)
-                <tr>
+                <tr class="{{ slot.isAfternoonStart ? 'is-afternoon-start' : '' }}">
                   <th>{{ slot.timeRange }}</th>
                   @each(cell in slot.cells)
                     <td>

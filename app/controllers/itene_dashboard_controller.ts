@@ -146,7 +146,11 @@ export default class IteneDashboardController {
 
     const reservationItems = reservations.map(formatReservationItem)
 
-    const reservationTimetable = buildReservationTimetable(reservationItems)
+    const reservationTimetable = buildReservationTimetable(reservationItems, {
+      startOn: construction.whole_period_start_on,
+      endOn: construction.whole_period_end_on,
+      breakStartTime: construction.break_start_time,
+    })
 
     return view.render('pages/construction_detail', {
       construction: {
@@ -276,43 +280,23 @@ function formatReservationItem(row: Record<string, any>): ReservationItem {
   }
 }
 
-function groupReservationsByDate(items: ReservationItem[]) {
-  const groups = new Map<
-    string,
-    { dateKey: string; dateLabel: string; reservations: ReservationItem[] }
-  >()
-
-  for (const item of items) {
-    if (!groups.has(item.dateKey)) {
-      groups.set(item.dateKey, {
-        dateKey: item.dateKey,
-        dateLabel: item.dateLabel,
-        reservations: [],
-      })
-    }
-
-    groups.get(item.dateKey)!.reservations.push(item)
-  }
-
-  return Array.from(groups.values()).map((group) => ({
-    ...group,
-    reservations: group.reservations.sort(compareReservations),
-  }))
-}
-
-function buildReservationTimetable(items: ReservationItem[]) {
-  const dates = groupReservationsByDate(items).map((group) => ({
-    dateKey: group.dateKey,
-    dateLabel: group.dateLabel,
-  }))
+function buildReservationTimetable(
+  items: ReservationItem[],
+  options: { startOn?: unknown; endOn?: unknown; breakStartTime?: unknown } = {}
+) {
+  const dates = buildTimetableDates(items, options.startOn, options.endOn)
   const slotKeys = Array.from(
     new Set(items.map((item) => `${item.startTime}|${item.endTime}`))
   ).sort()
+  // 昼休憩の開始時刻を午前／午後の境界とする（取得できなければ正午）
+  const breakStart = normalizeTimeOfDay(options.breakStartTime) ?? '12:00'
   const slots = slotKeys.map((slotKey) => {
     const [startTime, endTime] = slotKey.split('|')
 
     return {
       timeRange: `${startTime} - ${endTime}`,
+      isAfternoon: startTime >= breakStart,
+      isAfternoonStart: false,
       cells: dates.map((date) => ({
         dateKey: date.dateKey,
         reservations: items
@@ -327,7 +311,86 @@ function buildReservationTimetable(items: ReservationItem[]) {
     }
   })
 
+  // 午前から午後へ切り替わる最初の行に境界フラグを立てる
+  slots.forEach((slot, index) => {
+    slot.isAfternoonStart = index > 0 && slot.isAfternoon && !slots[index - 1].isAfternoon
+  })
+
   return { dates, slots }
+}
+
+// 工事期間の全日付（予約のない日も含む）を日付軸として組み立てる。
+// 念のため予約のある日付も和集合に加え、期間外の予約も取りこぼさないようにする
+function buildTimetableDates(items: ReservationItem[], startOn: unknown, endOn: unknown) {
+  const labelByDate = new Map<string, string>()
+
+  for (const period of enumerateDates(startOn, endOn)) {
+    labelByDate.set(period.dateKey, period.dateLabel)
+  }
+  for (const item of items) {
+    if (!labelByDate.has(item.dateKey)) {
+      labelByDate.set(item.dateKey, item.dateLabel)
+    }
+  }
+
+  return Array.from(labelByDate.entries())
+    .map(([dateKey, dateLabel]) => ({ dateKey, dateLabel }))
+    .sort((left, right) => left.dateKey.localeCompare(right.dateKey))
+}
+
+function enumerateDates(startOn: unknown, endOn: unknown) {
+  const start = parseDateOnly(startOn)
+  const end = parseDateOnly(endOn)
+  if (!start || !end || end.getTime() < start.getTime()) {
+    return [] as { dateKey: string; dateLabel: string }[]
+  }
+
+  const result: { dateKey: string; dateLabel: string }[] = []
+  const cursor = new Date(start)
+  // 異常に長い期間の誤データでも暴走しないようガードを入れる
+  for (let guard = 0; cursor.getTime() <= end.getTime() && guard < 800; guard += 1) {
+    result.push(formatDateOnly(cursor))
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  }
+
+  return result
+}
+
+function parseDateOnly(value: unknown) {
+  const match = String(value ?? '')
+    .slice(0, 10)
+    .match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) {
+    return null
+  }
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])))
+}
+
+function formatDateOnly(date: Date) {
+  const parts = new Intl.DateTimeFormat('ja-JP', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+  })
+    .formatToParts(date)
+    .reduce<Record<string, string>>((result, part) => {
+      result[part.type] = part.value
+      return result
+    }, {})
+
+  const dateKey = `${parts.year}-${parts.month}-${parts.day}`
+
+  return {
+    dateKey,
+    dateLabel: `${dateKey} (${parts.weekday})`,
+  }
+}
+
+function normalizeTimeOfDay(value: unknown) {
+  const match = String(value ?? '').match(/^(\d{2}):(\d{2})/)
+  return match ? `${match[1]}:${match[2]}` : null
 }
 
 function compareReservations(left: ReservationItem, right: ReservationItem) {
