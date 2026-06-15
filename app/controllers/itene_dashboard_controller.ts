@@ -3,7 +3,7 @@ import { ensureRecentIteneData } from '#services/itene_auto_sync_service'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class IteneDashboardController {
-  async index({ view }: HttpContext) {
+  async index({ request, view }: HttpContext) {
     const syncStatus = await ensureRecentIteneData({ scope: 'constructions' })
     const [constructionCount, roomCount, reservationCount, workSlotCount] = await Promise.all([
       countRows('itene_constructions'),
@@ -11,6 +11,8 @@ export default class IteneDashboardController {
       countRows('itene_reservations'),
       countRows('itene_room_work_slots'),
     ])
+    const pagination = resolvePagination(request.input('page'), constructionCount, 50)
+
     const constructions = (
       await db
         .from('itene_constructions')
@@ -26,7 +28,8 @@ export default class IteneDashboardController {
           'last_synced_at'
         )
         .orderBy('last_synced_at', 'desc')
-        .limit(12)
+        .offset((pagination.currentPage - 1) * pagination.perPage)
+        .limit(pagination.perPage)
     ).map(withSyncedAtDisplay)
 
     return view.render('pages/dashboard', {
@@ -37,6 +40,7 @@ export default class IteneDashboardController {
         workSlotCount,
       },
       constructions,
+      pagination,
       syncStatus,
     })
   }
@@ -149,6 +153,35 @@ export default class IteneDashboardController {
       timetableColspan: reservationTimetable.dates.length + 1,
       syncStatus,
     })
+  }
+}
+
+function resolvePagination(rawPage: unknown, total: number, perPage: number) {
+  const totalPages = Math.max(1, Math.ceil(total / perPage))
+  const parsed = Number.parseInt(String(rawPage ?? '1'), 10)
+  const currentPage = Math.min(Math.max(Number.isNaN(parsed) ? 1 : parsed, 1), totalPages)
+
+  const windowSize = 5
+  const windowEnd = Math.min(totalPages, Math.max(1, currentPage - 2) + windowSize - 1)
+  const windowStart = Math.max(1, windowEnd - windowSize + 1)
+
+  const pages: number[] = []
+  for (let page = windowStart; page <= windowEnd; page += 1) {
+    pages.push(page)
+  }
+
+  return {
+    currentPage,
+    perPage,
+    totalPages,
+    total,
+    hasPrev: currentPage > 1,
+    hasNext: currentPage < totalPages,
+    prevPage: Math.max(1, currentPage - 1),
+    nextPage: Math.min(totalPages, currentPage + 1),
+    from: total === 0 ? 0 : (currentPage - 1) * perPage + 1,
+    to: Math.min(currentPage * perPage, total),
+    pages,
   }
 }
 

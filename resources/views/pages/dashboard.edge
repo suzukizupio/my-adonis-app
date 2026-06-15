@@ -79,6 +79,38 @@
             </tbody>
           </table>
         </div>
+        @if(pagination.totalPages > 1)
+          <nav class="pagination" aria-label="工事一覧のページ送り">
+            <span class="pagination-info">
+              全 {{ pagination.total }} 件中 {{ pagination.from }}–{{ pagination.to }} 件を表示
+            </span>
+            <ul class="pagination-list">
+              <li>
+                @if(pagination.hasPrev)
+                  <a class="pagination-link" href="?page={{ pagination.prevPage }}" rel="prev">前へ</a>
+                @else
+                  <span class="pagination-link is-disabled">前へ</span>
+                @end
+              </li>
+              @each(page in pagination.pages)
+                <li>
+                  @if(page === pagination.currentPage)
+                    <span class="pagination-link is-current" aria-current="page">{{ page }}</span>
+                  @else
+                    <a class="pagination-link" href="?page={{ page }}">{{ page }}</a>
+                  @end
+                </li>
+              @end
+              <li>
+                @if(pagination.hasNext)
+                  <a class="pagination-link" href="?page={{ pagination.nextPage }}" rel="next">次へ</a>
+                @else
+                  <span class="pagination-link is-disabled">次へ</span>
+                @end
+              </li>
+            </ul>
+          </nav>
+        @end
       </section>
     </div>
   </section>
