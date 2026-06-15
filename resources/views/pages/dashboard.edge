@@ -68,7 +68,7 @@
                     <span class="date-separator">/</span>
                     {{ construction.whole_period_end_on || '-' }}
                   </td>
-                  <td><span class="status-pill">{{ construction.status || '未設定' }}</span></td>
+                  <td><span class="status-pill is-{{ construction.status_display.variant }}">{{ construction.status_display.label }}</span></td>
                   <td>{{ construction.last_synced_at_display || '-' }}</td>
                 </tr>
               @else

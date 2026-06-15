@@ -30,7 +30,10 @@ export default class IteneDashboardController {
         .orderBy('last_synced_at', 'desc')
         .offset((pagination.currentPage - 1) * pagination.perPage)
         .limit(pagination.perPage)
-    ).map(withSyncedAtDisplay)
+    ).map((row) => ({
+      ...withSyncedAtDisplay(row),
+      status_display: describeConstructionStatus(row.status),
+    }))
 
     return view.render('pages/dashboard', {
       metrics: {
@@ -140,7 +143,10 @@ export default class IteneDashboardController {
     const reservationTimetable = buildReservationTimetable(reservationItems)
 
     return view.render('pages/construction_detail', {
-      construction: withSyncedAtDisplay(construction),
+      construction: {
+        ...withSyncedAtDisplay(construction),
+        status_display: describeConstructionStatus(construction.status),
+      },
       metrics: {
         roomCount,
         reservationCount,
@@ -325,6 +331,17 @@ function compareReservations(left: ReservationItem, right: ReservationItem) {
     left.endTime.localeCompare(right.endTime) ||
     left.roomNo.localeCompare(right.roomNo, 'ja')
   )
+}
+
+const CONSTRUCTION_STATUS_LABELS: Record<string, { label: string; variant: string }> = {
+  '0': { label: '未対応', variant: 'pending' },
+  '1': { label: '対応中', variant: 'progress' },
+  '2': { label: '対応済み', variant: 'done' },
+}
+
+function describeConstructionStatus(status: unknown) {
+  const key = status === null || status === undefined ? '' : String(status).trim()
+  return CONSTRUCTION_STATUS_LABELS[key] ?? { label: key || '未設定', variant: 'unknown' }
 }
 
 function withSyncedAtDisplay<T extends { last_synced_at?: unknown }>(record: T) {

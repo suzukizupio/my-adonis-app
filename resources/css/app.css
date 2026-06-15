@@ -328,6 +328,21 @@ meter::-webkit-meter-optimum-value {
   font-weight: 650;
   white-space: nowrap;
 }
+.status-pill.is-pending {
+  border-color: #ef4444;
+  background: #ef4444;
+  color: #fff;
+}
+.status-pill.is-progress {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #fff;
+}
+.status-pill.is-done {
+  border-color: #16a34a;
+  background: #16a34a;
+  color: #fff;
+}
 .reservation-list {
   display: grid;
   gap: 12px;
