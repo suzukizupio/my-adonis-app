@@ -130,32 +130,6 @@
     <div class="dashboard-grid detail-grid">
       <section class="panel">
         <div class="panel-heading">
-          <h2>予約部屋一覧</h2>
-          <span>Reserved rooms</span>
-        </div>
-        <div class="reservation-room-groups">
-          @each(group in reservationGroups)
-            <section class="reservation-day">
-              <h3>{{ group.dateLabel }}</h3>
-              <div class="reservation-chip-list">
-                @each(reservation in group.reservations)
-                  <span
-                    class="reservation-chip {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
-                  >
-                    <strong>{{ reservation.roomNo }}</strong>
-                    <small>{{ reservation.timeRange }}</small>
-                  </span>
-                @end
-              </div>
-            </section>
-          @else
-            <p class="empty-list">予約データはありません</p>
-          @end
-        </div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-heading">
           <h2>タイムテーブル</h2>
           <span>Timetable</span>
         </div>

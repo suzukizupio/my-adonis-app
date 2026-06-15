@@ -479,8 +479,6 @@ a.status-tab:hover {
   overflow-x: auto;
 }
 .timetable-table {
-  width: 100%;
-  min-width: 900px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -502,8 +500,19 @@ a.status-tab:hover {
   color: var(--gray-6);
   font-weight: 700;
 }
+/* 日付列は固定幅にして戸数によらずセルの大きさを揃える */
+.timetable-table thead th:not(:first-child),
+.timetable-table tbody td {
+  width: 156px;
+  min-width: 156px;
+}
+/* 時間列 */
+.timetable-table thead th:first-child,
 .timetable-table tbody th {
   width: 120px;
+  min-width: 120px;
+}
+.timetable-table tbody th {
   color: var(--gray-7);
   font-weight: 700;
   white-space: nowrap;

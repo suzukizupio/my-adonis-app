@@ -159,7 +159,6 @@ export default class IteneDashboardController {
       },
       rooms,
       reservations: reservationItems,
-      reservationGroups: groupReservationsByDate(reservationItems),
       reservationTimetable,
       timetableColspan: reservationTimetable.dates.length + 1,
       syncStatus,
@@ -349,7 +348,8 @@ function describeConstructionStatus(status: unknown) {
   return CONSTRUCTION_STATUS_LABELS[key] ?? { label: key || '未設定', variant: 'unknown' }
 }
 
-const CONSTRUCTION_STATUS_FILTERS = ['0', '1', '2'] as const
+// タブの表示順。既定（対応中）を先頭に置く
+const CONSTRUCTION_STATUS_FILTERS = ['1', '0', '2'] as const
 const DEFAULT_CONSTRUCTION_STATUS_FILTER = '1'
 
 function resolveStatusFilter(raw: unknown) {
