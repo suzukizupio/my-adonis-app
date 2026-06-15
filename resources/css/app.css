@@ -484,7 +484,8 @@ a.status-tab:hover {
 }
 .timetable-table th,
 .timetable-table td {
-  border-right: 1px solid var(--gray-3);
+  /* 縦線（日付ごとの境界）を横線より少しだけ濃くして日付列を見やすくする */
+  border-right: 1px solid var(--gray-4);
   border-bottom: 1px solid var(--gray-3);
   padding: 8px;
   text-align: left;
@@ -544,7 +545,7 @@ a.status-tab:hover {
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,
 .timetable-table tbody tr.is-afternoon-start > td {
-  border-top: 2px solid var(--gray-8);
+  border-top: 2px solid var(--gray-6);
 }
 .detail-summary {
   display: grid;
