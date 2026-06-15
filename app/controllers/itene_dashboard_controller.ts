@@ -5,13 +5,15 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class IteneDashboardController {
   async index({ request, view }: HttpContext) {
     const syncStatus = await ensureRecentIteneData({ scope: 'constructions' })
-    const [constructionCount, roomCount, reservationCount, workSlotCount] = await Promise.all([
-      countRows('itene_constructions'),
+    const statusFilter = resolveStatusFilter(request.input('status'))
+    const [statusCounts, roomCount, reservationCount, workSlotCount] = await Promise.all([
+      countConstructionsByStatus(),
       countRows('itene_construction_rooms'),
       countRows('itene_reservations'),
       countRows('itene_room_work_slots'),
     ])
-    const pagination = resolvePagination(request.input('page'), constructionCount, 50)
+    const filteredCount = statusCounts.byStatus[statusFilter] ?? 0
+    const pagination = resolvePagination(request.input('page'), filteredCount, 50)
 
     const constructions = (
       await db
@@ -27,6 +29,7 @@ export default class IteneDashboardController {
           'whole_period_end_on',
           'last_synced_at'
         )
+        .where('status', statusFilter)
         .orderBy('last_synced_at', 'desc')
         .offset((pagination.currentPage - 1) * pagination.perPage)
         .limit(pagination.perPage)
@@ -37,7 +40,7 @@ export default class IteneDashboardController {
 
     return view.render('pages/dashboard', {
       metrics: {
-        constructionCount,
+        constructionCount: statusCounts.total,
         roomCount,
         reservationCount,
         workSlotCount,
@@ -45,6 +48,8 @@ export default class IteneDashboardController {
       constructions,
       pagination,
       syncStatus,
+      statusFilter,
+      statusTabs: buildStatusTabs(statusFilter, statusCounts),
     })
   }
 
@@ -342,6 +347,48 @@ const CONSTRUCTION_STATUS_LABELS: Record<string, { label: string; variant: strin
 function describeConstructionStatus(status: unknown) {
   const key = status === null || status === undefined ? '' : String(status).trim()
   return CONSTRUCTION_STATUS_LABELS[key] ?? { label: key || '未設定', variant: 'unknown' }
+}
+
+const CONSTRUCTION_STATUS_FILTERS = ['0', '1', '2'] as const
+const DEFAULT_CONSTRUCTION_STATUS_FILTER = '1'
+
+function resolveStatusFilter(raw: unknown) {
+  const value = raw === null || raw === undefined ? '' : String(raw).trim()
+  return (CONSTRUCTION_STATUS_FILTERS as readonly string[]).includes(value)
+    ? value
+    : DEFAULT_CONSTRUCTION_STATUS_FILTER
+}
+
+async function countConstructionsByStatus() {
+  const rows = await db
+    .from('itene_constructions')
+    .select('status')
+    .count('* as total')
+    .groupBy('status')
+
+  const byStatus: Record<string, number> = {}
+  let total = 0
+  for (const row of rows) {
+    const key = row.status === null || row.status === undefined ? '' : String(row.status).trim()
+    const count = Number(row.total ?? 0)
+    byStatus[key] = (byStatus[key] ?? 0) + count
+    total += count
+  }
+
+  return { byStatus, total }
+}
+
+function buildStatusTabs(activeStatus: string, statusCounts: { byStatus: Record<string, number> }) {
+  return CONSTRUCTION_STATUS_FILTERS.map((status) => {
+    const info = describeConstructionStatus(status)
+    return {
+      status,
+      label: info.label,
+      variant: info.variant,
+      count: statusCounts.byStatus[status] ?? 0,
+      isActive: status === activeStatus,
+    }
+  })
 }
 
 function withSyncedAtDisplay<T extends { last_synced_at?: unknown }>(record: T) {

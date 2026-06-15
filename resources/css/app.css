@@ -343,6 +343,61 @@ meter::-webkit-meter-optimum-value {
   background: #16a34a;
   color: #fff;
 }
+.status-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+.status-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--gray-3);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--gray-8);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  white-space: nowrap;
+}
+a.status-tab:hover {
+  border-color: var(--gray-6);
+  color: var(--gray-12);
+}
+.status-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--gray-2);
+  color: var(--gray-8);
+  font-size: 12px;
+}
+.status-tab.is-active {
+  color: #fff;
+}
+.status-tab.is-active .status-tab-count {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+.status-tab.is-active.is-pending {
+  border-color: #ef4444;
+  background: #ef4444;
+}
+.status-tab.is-active.is-progress {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+.status-tab.is-active.is-done {
+  border-color: #16a34a;
+  background: #16a34a;
+}
 .reservation-list {
   display: grid;
   gap: 12px;
