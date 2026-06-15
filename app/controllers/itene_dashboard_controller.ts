@@ -118,7 +118,9 @@ export default class IteneDashboardController {
           'last_synced_at'
         )
         .where('itene_construction_id', construction.id)
-        .orderBy('room_no')
+        // 部屋番号を数値として昇順（若番順）に並べる。文字列順だと 1001 が 203 より先に来てしまう。
+        // ラウンジ等の番号でない部屋は末尾にまとめる
+        .orderByRaw("CASE WHEN room_no GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(room_no AS INTEGER), room_no")
     ).map(withSyncedAtDisplay)
 
     const reservations = await db
