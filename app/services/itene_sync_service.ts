@@ -70,13 +70,17 @@ export default class IteneSyncService {
         continue
       }
 
+      const optionMap = await this.fetchOptionMap(constructionId)
+
       await db.transaction(async (trx) => {
         const construction = await this.upsertReservationConstruction(record, trx)
 
         await this.deleteReservationChildrenForConstruction(construction.id, trx)
 
         for (const room of rooms) {
-          const savedRoom = await this.upsertRoom(construction.id, room, trx)
+          const roomIteneId = nullableNumber(room.id)
+          const option = roomIteneId !== null ? optionMap.get(roomIteneId) : undefined
+          const savedRoom = await this.upsertRoom(construction.id, room, trx, option)
           await this.upsertReservations(savedRoom.id, room, trx)
           await this.upsertWorkSlots(savedRoom.id, room, trx)
         }
@@ -151,6 +155,49 @@ export default class IteneSyncService {
     return this.client.fetchReservationDetail(constructionId)
   }
 
+  // 工事のオプション申込一覧を取得し、部屋(itene_room_id) => 申込内容 のマップにする。
+  // 取得に失敗してもオプション無し扱いで同期全体は継続する。
+  private async fetchOptionMap(constructionId: number | string) {
+    const map = new Map<number, { items: string[]; paid: boolean }>()
+    const client = this.client as IteneClient & {
+      fetchOptionApplications?: (constructionId: number | string) => Promise<unknown>
+    }
+
+    if (typeof client.fetchOptionApplications !== 'function') {
+      return map
+    }
+
+    try {
+      const applications = toArray(await client.fetchOptionApplications(constructionId))
+      for (const application of applications) {
+        const roomIteneId = nullableNumber(application.constructionRoomId)
+        if (roomIteneId === null) {
+          continue
+        }
+
+        const entry = map.get(roomIteneId) ?? { items: [], paid: false }
+        for (const item of toArray(application.Items)) {
+          const name = nullableString(item.optionalItemName)
+          if (name) {
+            entry.items.push(name)
+          }
+        }
+        if (
+          toArray(application.PaymentStatus).some(
+            (payment) => String(payment.status ?? '').toUpperCase() === 'CAPTURE'
+          )
+        ) {
+          entry.paid = true
+        }
+        map.set(roomIteneId, entry)
+      }
+    } catch {
+      // オプション取得に失敗した場合は空のまま（オプション無し扱い）
+    }
+
+    return map
+  }
+
   private async upsertReservationConstruction(record: JsonObject, client: any = db) {
     const iteneId = nullableNumber(record.id)
     if (!iteneId) {
@@ -169,7 +216,12 @@ export default class IteneSyncService {
     return this.upsertConstruction(record, client)
   }
 
-  private async upsertRoom(constructionLocalId: number, record: JsonObject, client: any = db) {
+  private async upsertRoom(
+    constructionLocalId: number,
+    record: JsonObject,
+    client: any = db,
+    option?: { items: string[]; paid: boolean }
+  ) {
     const now = nowSql()
     const reservations = toArray(record.Reservations)
     const payload = {
@@ -189,6 +241,10 @@ export default class IteneSyncService {
       has_additional_flag: reservations.some((reservation) =>
         nullableBoolean(reservation.additionalFlag)
       ),
+      has_option: Boolean(option),
+      option_items:
+        option && option.items.length > 0 ? [...new Set(option.items)].join(' / ') : null,
+      option_paid: Boolean(option?.paid),
       itene_created_at: timestamp(record.createdAt),
       itene_updated_at: timestamp(record.updatedAt),
       raw: rawJson(record),

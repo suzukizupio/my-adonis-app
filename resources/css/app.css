@@ -542,6 +542,13 @@ a.status-tab:hover {
 .timetable-empty {
   color: var(--gray-6);
 }
+/* オプション申込マーク */
+.option-mark {
+  font-size: 12px;
+  margin-left: 2px;
+  cursor: default;
+  vertical-align: middle;
+}
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,
 .timetable-table tbody tr.is-afternoon-start > td {

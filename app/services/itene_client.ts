@@ -80,6 +80,13 @@ export default class IteneClient {
     return this.getJson(url)
   }
 
+  async fetchOptionApplications(constructionId: number | string): Promise<unknown> {
+    const encodedId = encodeURIComponent(String(constructionId))
+    const url = new URL(`timetable/optionalApplications/${encodedId}`, `${this.config.apiBaseUrl}/`)
+
+    return this.getJson(url)
+  }
+
   private async getJson(url: URL) {
     const authSession = await this.getAuthSession()
     const response = await this.fetchJson(url, authSession)

@@ -8,29 +8,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class IteneConstructionRoomSchema extends BaseModel {
-  static $columns = [
-    'buildingId',
-    'constructionCode',
-    'constructionId',
-    'createdAt',
-    'floorNo',
-    'hasAdditionalFlag',
-    'hasMessage',
-    'hasRemarks',
-    'hasReservation',
-    'id',
-    'iteneConstructionId',
-    'iteneCreatedAt',
-    'iteneRoomId',
-    'iteneUpdatedAt',
-    'lastSyncedAt',
-    'raw',
-    'roomNo',
-    'spaceCode',
-    'spaceName',
-    'status',
-    'updatedAt',
-  ] as const
+  static $columns = ['buildingId', 'constructionCode', 'constructionId', 'createdAt', 'floorNo', 'hasAdditionalFlag', 'hasMessage', 'hasOption', 'hasRemarks', 'hasReservation', 'id', 'iteneConstructionId', 'iteneCreatedAt', 'iteneRoomId', 'iteneUpdatedAt', 'lastSyncedAt', 'optionItems', 'optionPaid', 'raw', 'roomNo', 'spaceCode', 'spaceName', 'status', 'updatedAt'] as const
   $columns = IteneConstructionRoomSchema.$columns
   @column()
   declare buildingId: bigint | number | null
@@ -46,6 +24,8 @@ export class IteneConstructionRoomSchema extends BaseModel {
   declare hasAdditionalFlag: boolean
   @column()
   declare hasMessage: boolean
+  @column()
+  declare hasOption: boolean
   @column()
   declare hasRemarks: boolean
   @column()
@@ -63,6 +43,10 @@ export class IteneConstructionRoomSchema extends BaseModel {
   @column.dateTime()
   declare lastSyncedAt: DateTime | null
   @column()
+  declare optionItems: string | null
+  @column()
+  declare optionPaid: boolean
+  @column()
   declare raw: any | null
   @column()
   declare roomNo: string | null
@@ -77,34 +61,7 @@ export class IteneConstructionRoomSchema extends BaseModel {
 }
 
 export class IteneConstructionSchema extends BaseModel {
-  static $columns = [
-    'breakEndTime',
-    'breakStartTime',
-    'buildingCompleteOnDate',
-    'buildingHousehold',
-    'buildingId',
-    'buildingName',
-    'code',
-    'createdAt',
-    'id',
-    'iteneCreatedAt',
-    'iteneId',
-    'iteneUpdatedAt',
-    'lastSyncedAt',
-    'messageToResident',
-    'name',
-    'raw',
-    'reservationAcceptancePeriodEndOn',
-    'reservationAcceptancePeriodStartOn',
-    'residentialPeriodEndOn',
-    'residentialPeriodStartOn',
-    'status',
-    'updatedAt',
-    'wholePeriodEndOn',
-    'wholePeriodStartOn',
-    'workEndTime',
-    'workStartTime',
-  ] as const
+  static $columns = ['breakEndTime', 'breakStartTime', 'buildingCompleteOnDate', 'buildingHousehold', 'buildingId', 'buildingName', 'code', 'createdAt', 'id', 'iteneCreatedAt', 'iteneId', 'iteneUpdatedAt', 'lastSyncedAt', 'messageToResident', 'name', 'raw', 'reservationAcceptancePeriodEndOn', 'reservationAcceptancePeriodStartOn', 'residentialPeriodEndOn', 'residentialPeriodStartOn', 'status', 'updatedAt', 'wholePeriodEndOn', 'wholePeriodStartOn', 'workEndTime', 'workStartTime'] as const
   $columns = IteneConstructionSchema.$columns
   @column()
   declare breakEndTime: string | null
@@ -161,29 +118,7 @@ export class IteneConstructionSchema extends BaseModel {
 }
 
 export class IteneReservationSchema extends BaseModel {
-  static $columns = [
-    'additionalFlag',
-    'constructionId',
-    'constructionRoomId',
-    'createdAt',
-    'endAt',
-    'floorNo',
-    'id',
-    'iteneConstructionRoomId',
-    'iteneCreatedAt',
-    'iteneReservationId',
-    'iteneUpdatedAt',
-    'lastSyncedAt',
-    'lockRoomOwner',
-    'mainCharge',
-    'raw',
-    'reservationDate',
-    'roomNo',
-    'startAt',
-    'status',
-    'subCharge',
-    'updatedAt',
-  ] as const
+  static $columns = ['additionalFlag', 'constructionId', 'constructionRoomId', 'createdAt', 'endAt', 'floorNo', 'id', 'iteneConstructionRoomId', 'iteneCreatedAt', 'iteneReservationId', 'iteneUpdatedAt', 'lastSyncedAt', 'lockRoomOwner', 'mainCharge', 'raw', 'reservationDate', 'roomNo', 'startAt', 'status', 'subCharge', 'updatedAt'] as const
   $columns = IteneReservationSchema.$columns
   @column()
   declare additionalFlag: boolean
@@ -230,21 +165,7 @@ export class IteneReservationSchema extends BaseModel {
 }
 
 export class IteneRoomWorkSlotSchema extends BaseModel {
-  static $columns = [
-    'cancelLocked',
-    'createdAt',
-    'endTime',
-    'id',
-    'iteneConstructionRoomId',
-    'iteneReservationId',
-    'raw',
-    'reservationStatus',
-    'sequence',
-    'startTime',
-    'updatedAt',
-    'workDate',
-    'workType',
-  ] as const
+  static $columns = ['cancelLocked', 'createdAt', 'endTime', 'id', 'iteneConstructionRoomId', 'iteneReservationId', 'raw', 'reservationStatus', 'sequence', 'startTime', 'updatedAt', 'workDate', 'workType'] as const
   $columns = IteneRoomWorkSlotSchema.$columns
   @column()
   declare cancelLocked: boolean | null

@@ -114,6 +114,9 @@ export default class IteneDashboardController {
           'has_message',
           'has_remarks',
           'has_additional_flag',
+          'has_option',
+          'option_items',
+          'option_paid',
           'last_synced_at'
         )
         .where('itene_construction_id', construction.id)
@@ -130,6 +133,7 @@ export default class IteneDashboardController {
         'itene_construction_rooms.id'
       )
       .select(
+        'itene_reservations.itene_construction_room_id',
         'itene_reservations.room_no',
         'itene_reservations.floor_no',
         'itene_reservations.status',
@@ -144,7 +148,21 @@ export default class IteneDashboardController {
       .where('itene_construction_rooms.itene_construction_id', construction.id)
       .orderBy('itene_reservations.start_at')
 
-    const reservationItems = reservations.map(formatReservationItem)
+    // 部屋(ローカルID) => オプション情報。予約ブロックにマークを出すために使う
+    const roomOptionByRoomId = new Map(
+      rooms.map((room) => [
+        room.id,
+        {
+          hasOption: Boolean(room.has_option),
+          items: (room.option_items as string | null) ?? null,
+          paid: Boolean(room.option_paid),
+        },
+      ])
+    )
+
+    const reservationItems = reservations.map((row) =>
+      formatReservationItem(row, roomOptionByRoomId.get(row.itene_construction_room_id))
+    )
 
     const reservationTimetable = buildReservationTimetable(reservationItems, {
       startOn: construction.whole_period_start_on,
@@ -255,9 +273,15 @@ type ReservationItem = {
   lockRoomOwner: boolean
   mainCharge?: string
   subCharge?: string
+  hasOption: boolean
+  optionItems?: string | null
+  optionPaid: boolean
 }
 
-function formatReservationItem(row: Record<string, any>): ReservationItem {
+function formatReservationItem(
+  row: Record<string, any>,
+  option?: { hasOption: boolean; items: string | null; paid: boolean }
+): ReservationItem {
   const start = formatJstDateTime(row.start_at)
   const end = formatJstDateTime(row.end_at)
   const roomNo = row.room_no ? `${row.room_no}号室` : '-'
@@ -277,6 +301,9 @@ function formatReservationItem(row: Record<string, any>): ReservationItem {
     lockRoomOwner: Boolean(row.lock_room_owner),
     mainCharge: row.main_charge,
     subCharge: row.sub_charge,
+    hasOption: Boolean(option?.hasOption),
+    optionItems: option?.items ?? null,
+    optionPaid: Boolean(option?.paid),
   }
 }
 
