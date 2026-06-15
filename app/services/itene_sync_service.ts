@@ -1,0 +1,393 @@
+import db from '@adonisjs/lucid/services/db'
+import type IteneClient from '#services/itene_client'
+import {
+  dateOnly,
+  inferFloorNo,
+  isObject,
+  nullableBoolean,
+  nullableNumber,
+  nullableString,
+  rawJson,
+  timeOnly,
+  timestamp,
+  toArray,
+  type JsonObject,
+} from '#services/itene_mapper'
+
+type SyncOptions = {
+  dryRun?: boolean
+  constructionId?: number | string
+}
+
+type SyncResult = {
+  constructions: number
+  rooms: number
+  reservations: number
+  workSlots: number
+}
+
+export default class IteneSyncService {
+  constructor(private client: IteneClient) {}
+
+  async syncConstructions(options: SyncOptions = {}): Promise<SyncResult> {
+    const records = toArray(await this.client.fetchAllConstructions())
+
+    if (options.dryRun) {
+      return { constructions: records.length, rooms: 0, reservations: 0, workSlots: 0 }
+    }
+
+    for (const record of records) {
+      await this.upsertConstruction(record)
+    }
+
+    return { constructions: records.length, rooms: 0, reservations: 0, workSlots: 0 }
+  }
+
+  async syncReservations(options: SyncOptions = {}): Promise<SyncResult> {
+    const constructionIds = options.constructionId
+      ? [options.constructionId]
+      : await this.getStoredConstructionIds()
+    const total: SyncResult = { constructions: 0, rooms: 0, reservations: 0, workSlots: 0 }
+
+    for (const constructionId of constructionIds) {
+      const detail = await this.fetchConstructionWithRooms(constructionId)
+      const record = normalizeReservationDetail(detail, constructionId)
+      const rooms = isObject(record) ? toArray(record.ConstructionRooms) : []
+      const reservations = rooms.flatMap((room) => toArray(room.Reservations))
+
+      total.constructions += 1
+      total.rooms += rooms.length
+      total.reservations += reservations.length
+      total.workSlots += reservations.length
+
+      if (options.dryRun || !isObject(record)) {
+        continue
+      }
+
+      await db.transaction(async (trx) => {
+        const construction = await this.upsertReservationConstruction(record, trx)
+
+        await this.deleteReservationChildrenForConstruction(construction.id, trx)
+
+        for (const room of rooms) {
+          const savedRoom = await this.upsertRoom(construction.id, room, trx)
+          await this.upsertReservations(savedRoom.id, room, trx)
+          await this.upsertWorkSlots(savedRoom.id, room, trx)
+        }
+
+        await this.deleteMissingRoomsForConstruction(construction.id, rooms, trx)
+      })
+    }
+
+    return total
+  }
+
+  private async getStoredConstructionIds(): Promise<number[]> {
+    const rows = await db.from('itene_constructions').select('itene_id').orderBy('itene_id')
+    return rows.map((row) => Number(row.itene_id))
+  }
+
+  private async upsertConstruction(record: JsonObject, client: any = db) {
+    const now = nowSql()
+    const payload = {
+      itene_id: nullableNumber(record.id),
+      code: nullableString(record.code),
+      name: nullableString(record.name),
+      building_name: nullableString(record.buildingName),
+      building_id: nullableNumber(record.buildingId),
+      building_household: nullableNumber(record.buildingHousehold),
+      building_complete_on_date: dateOnly(record.buildingCompleteOnDate),
+      reservation_acceptance_period_start_on: dateOnly(record.reservationAcceptancePeriodStartOn),
+      reservation_acceptance_period_end_on: dateOnly(record.reservationAcceptancePeriodEndOn),
+      whole_period_start_on: dateOnly(record.wholePeriodStartOn),
+      whole_period_end_on: dateOnly(record.wholePeriodEndOn),
+      residential_period_start_on: dateOnly(record.residentialPeriodStartOn),
+      residential_period_end_on: dateOnly(record.residentialPeriodEndOn),
+      status: nullableString(record.status),
+      work_start_time: timeOnly(record.workStartTime),
+      work_end_time: timeOnly(record.workEndTime),
+      break_start_time: timeOnly(record.breakStartTime),
+      break_end_time: timeOnly(record.breakEndTime),
+      message_to_resident: nullableString(record.messageToResident),
+      itene_created_at: timestamp(record.createdAt),
+      itene_updated_at: timestamp(record.updatedAt),
+      raw: rawJson(record),
+      last_synced_at: now,
+      updated_at: now,
+    }
+
+    if (!payload.itene_id) {
+      throw new Error('ITENE construction id is missing')
+    }
+
+    await client
+      .table('itene_constructions')
+      .insert({ ...payload, created_at: now })
+      .onConflict('itene_id')
+      .merge(payload)
+
+    return client.from('itene_constructions').where('itene_id', payload.itene_id).firstOrFail()
+  }
+
+  private async fetchConstructionWithRooms(constructionId: number | string) {
+    const client = this.client as IteneClient & {
+      fetchDwellingDetail?: (constructionId: number | string) => Promise<unknown>
+    }
+
+    if (typeof client.fetchDwellingDetail === 'function') {
+      try {
+        return await client.fetchDwellingDetail(constructionId)
+      } catch {
+        return this.client.fetchReservationDetail(constructionId)
+      }
+    }
+
+    return this.client.fetchReservationDetail(constructionId)
+  }
+
+  private async upsertReservationConstruction(record: JsonObject, client: any = db) {
+    const iteneId = nullableNumber(record.id)
+    if (!iteneId) {
+      throw new Error('ITENE construction id is missing')
+    }
+
+    const existing = await client.from('itene_constructions').where('itene_id', iteneId).first()
+    if (!hasConstructionDetails(record)) {
+      if (existing?.code || existing?.name || existing?.building_name) {
+        return existing
+      }
+
+      return this.upsertConstruction({ id: iteneId }, client)
+    }
+
+    return this.upsertConstruction(record, client)
+  }
+
+  private async upsertRoom(constructionLocalId: number, record: JsonObject, client: any = db) {
+    const now = nowSql()
+    const reservations = toArray(record.Reservations)
+    const payload = {
+      itene_construction_id: constructionLocalId,
+      itene_room_id: nullableNumber(record.id),
+      construction_id: nullableNumber(record.constructionId),
+      construction_code: nullableString(record.constructionCode),
+      building_id: nullableNumber(record.buildingId),
+      floor_no: nullableNumber(record.floorNo) ?? inferFloorNo(record.roomNo),
+      room_no: nullableString(record.roomNo),
+      space_code: nullableString(record.spaceCode),
+      space_name: nullableString(record.spaceName),
+      status: nullableString(record.status),
+      has_reservation: reservations.length > 0,
+      has_message: Boolean(nullableString(record.message)),
+      has_remarks: Boolean(nullableString(record.remarks)),
+      has_additional_flag: reservations.some((reservation) =>
+        nullableBoolean(reservation.additionalFlag)
+      ),
+      itene_created_at: timestamp(record.createdAt),
+      itene_updated_at: timestamp(record.updatedAt),
+      raw: rawJson(record),
+      last_synced_at: now,
+      updated_at: now,
+    }
+
+    if (!payload.itene_room_id) {
+      throw new Error('ITENE room id is missing')
+    }
+
+    await client
+      .table('itene_construction_rooms')
+      .insert({ ...payload, created_at: now })
+      .onConflict('itene_room_id')
+      .merge(payload)
+
+    return client
+      .from('itene_construction_rooms')
+      .where('itene_room_id', payload.itene_room_id)
+      .firstOrFail()
+  }
+
+  private async upsertReservations(roomLocalId: number, room: JsonObject, client: any = db) {
+    const now = nowSql()
+
+    for (const record of toArray(room.Reservations)) {
+      const payload = {
+        itene_construction_room_id: roomLocalId,
+        itene_reservation_id: nullableNumber(record.id),
+        construction_id: nullableNumber(record.constructionId),
+        construction_room_id: nullableNumber(record.constructionRoomId),
+        floor_no: nullableNumber(record.floorNo),
+        room_no: nullableString(record.roomNo),
+        start_at: timestamp(record.startAt),
+        end_at: timestamp(record.endAt),
+        status: nullableString(record.status),
+        additional_flag: Boolean(nullableBoolean(record.additionalFlag)),
+        lock_room_owner: Boolean(nullableBoolean(record.lockRoomOwner ?? record.lock4RoomOwner)),
+        main_charge: nullableString(record.mainCharge),
+        sub_charge: nullableString(record.subCharge),
+        reservation_date: timestamp(record.reservationDate),
+        itene_created_at: timestamp(record.createdAt),
+        itene_updated_at: timestamp(record.updatedAt),
+        raw: rawJson(record),
+        last_synced_at: now,
+        updated_at: now,
+      }
+
+      if (!payload.itene_reservation_id) {
+        continue
+      }
+
+      await client
+        .table('itene_reservations')
+        .insert({ ...payload, created_at: now })
+        .onConflict('itene_reservation_id')
+        .merge(payload)
+    }
+  }
+
+  private async upsertWorkSlots(roomLocalId: number, room: JsonObject, client: any = db) {
+    const now = nowSql()
+    const counters = { normal: 0, additional: 0 }
+    const reservations = toArray(room.Reservations).sort((a, b) =>
+      String(a.startAt ?? '').localeCompare(String(b.startAt ?? ''))
+    )
+
+    for (const record of reservations) {
+      const workType = nullableBoolean(record.additionalFlag) ? 'additional' : 'normal'
+      const sequence = ++counters[workType]
+      const payload = {
+        itene_construction_room_id: roomLocalId,
+        itene_reservation_id: nullableNumber(record.id),
+        work_type: workType,
+        sequence,
+        work_date: dateOnly(record.reservationDate) ?? dateOnly(record.startAt),
+        start_time: timeOnly(record.startAt),
+        end_time: timeOnly(record.endAt),
+        reservation_status: nullableString(record.status),
+        cancel_locked: nullableBoolean(record.lockRoomOwner ?? record.lock4RoomOwner),
+        raw: rawJson(record),
+        updated_at: now,
+      }
+
+      await client
+        .table('itene_room_work_slots')
+        .insert({ ...payload, created_at: now })
+        .onConflict(['itene_construction_room_id', 'work_type', 'sequence'])
+        .merge(payload)
+    }
+  }
+
+  private async deleteReservationChildrenForConstruction(
+    constructionLocalId: number,
+    client: any = db
+  ) {
+    const roomRows = await client
+      .from('itene_construction_rooms')
+      .select('id')
+      .where('itene_construction_id', constructionLocalId)
+    const roomIds = roomRows.map((room: { id: number }) => room.id)
+
+    if (roomIds.length === 0) {
+      return
+    }
+
+    await client
+      .from('itene_room_work_slots')
+      .whereIn('itene_construction_room_id', roomIds)
+      .delete()
+    await client.from('itene_reservations').whereIn('itene_construction_room_id', roomIds).delete()
+  }
+
+  private async deleteMissingRoomsForConstruction(
+    constructionLocalId: number,
+    rooms: JsonObject[],
+    client: any = db
+  ) {
+    const roomIds = rooms.map((room) => nullableNumber(room.id)).filter((id) => id !== null)
+
+    if (roomIds.length === 0) {
+      return
+    }
+
+    await client
+      .from('itene_construction_rooms')
+      .where('itene_construction_id', constructionLocalId)
+      .whereNotIn('itene_room_id', roomIds)
+      .delete()
+  }
+}
+
+function nowSql() {
+  return new Date().toISOString().replace('T', ' ').slice(0, 19)
+}
+
+function normalizeReservationDetail(detail: unknown, constructionId: number | string) {
+  const payload = isObject(detail) && isObject(detail.data) ? detail.data : detail
+
+  if (Array.isArray(payload)) {
+    return buildConstructionFromTimetable(constructionId, payload)
+  }
+
+  if (isObject(payload) && Array.isArray(payload.TimetableReservations)) {
+    const { TimetableReservations, ...construction } = payload
+    return {
+      ...construction,
+      ConstructionRooms: buildConstructionFromTimetable(constructionId, TimetableReservations)
+        .ConstructionRooms,
+    }
+  }
+
+  if (isObject(payload) && isObject(payload.Construction)) {
+    return payload.Construction
+  }
+
+  return payload
+}
+
+function buildConstructionFromTimetable(constructionId: number | string, reservations: unknown[]) {
+  const rooms = new Map<string, JsonObject>()
+  const firstReservation = reservations.find(isObject)
+  const constructionItEneId =
+    nullableNumber(firstReservation?.constructionId) ?? nullableNumber(constructionId)
+
+  for (const reservation of reservations) {
+    if (!isObject(reservation)) {
+      continue
+    }
+
+    const roomId = nullableNumber(reservation.constructionRoomId)
+    const key = String(roomId ?? reservation.roomNo ?? reservation.id)
+    const room = rooms.get(key) ?? createRoomFromReservation(reservation, constructionId)
+    const roomReservations = Array.isArray(room.Reservations) ? room.Reservations : []
+
+    roomReservations.push({
+      ...reservation,
+      lockRoomOwner: reservation.lockRoomOwner ?? reservation.lock4RoomOwner,
+    })
+    room.Reservations = roomReservations
+    rooms.set(key, room)
+  }
+
+  return {
+    id: constructionItEneId ?? constructionId,
+    ConstructionRooms: Array.from(rooms.values()),
+  }
+}
+
+function createRoomFromReservation(reservation: JsonObject, constructionId: number | string) {
+  const constructionRoom = isObject(reservation.ConstructionRoom)
+    ? reservation.ConstructionRoom
+    : {}
+
+  return {
+    ...constructionRoom,
+    id: nullableNumber(reservation.constructionRoomId) ?? nullableNumber(constructionRoom.id),
+    constructionId: nullableNumber(reservation.constructionId) ?? nullableNumber(constructionId),
+    floorNo: reservation.floorNo,
+    roomNo: reservation.roomNo,
+    Reservations: [],
+  }
+}
+
+function hasConstructionDetails(record: JsonObject) {
+  return ['code', 'name', 'buildingName', 'status'].some((key) => record[key] !== undefined)
+}

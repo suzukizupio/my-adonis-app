@@ -1,0 +1,249 @@
+@layout()
+  <section class="dashboard itene-dashboard">
+    <div class="dashboard-heading">
+      <div>
+        <p><a class="text-link" href="/dashboard">ITENE</a> / 工事詳細</p>
+        <h1>
+          {{
+            construction.building_name ||
+            construction.name ||
+            construction.code ||
+            '工事詳細'
+          }}
+        </h1>
+      </div>
+      <span>{{ auth.user.fullName || auth.user.email }}</span>
+    </div>
+    @if(syncStatus?.error)
+      <div class="sync-alert">
+        最新同期に失敗しました。保存済みデータを表示しています:
+        {{ syncStatus.error }}
+      </div>
+    @end
+
+    <div class="detail-summary">
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>基本情報</h2>
+          <span>Construction</span>
+        </div>
+        <dl class="detail-list">
+          <div>
+            <dt>工事ID</dt>
+            <dd>{{ construction.itene_id }}</dd>
+          </div>
+          <div>
+            <dt>工事名</dt>
+            <dd>{{ construction.name || '-' }}</dd>
+          </div>
+          <div>
+            <dt>物件名</dt>
+            <dd>{{ construction.building_name || '-' }}</dd>
+          </div>
+          <div>
+            <dt>物件ID</dt>
+            <dd>{{ construction.building_id || '-' }}</dd>
+          </div>
+          <div>
+            <dt>戸数</dt>
+            <dd>{{ construction.building_household || '-' }}</dd>
+          </div>
+          <div>
+            <dt>状態</dt>
+            <dd><span class="status-pill">{{ construction.status || '未設定' }}</span></dd>
+          </div>
+          <div>
+            <dt>工事期間</dt>
+            <dd>
+              {{ construction.whole_period_start_on || '-' }}
+              /
+              {{ construction.whole_period_end_on || '-' }}
+            </dd>
+          </div>
+          <div>
+            <dt>居住者期間</dt>
+            <dd>
+              {{ construction.residential_period_start_on || '-' }}
+              /
+              {{ construction.residential_period_end_on || '-' }}
+            </dd>
+          </div>
+          <div>
+            <dt>予約受付期間</dt>
+            <dd>
+              {{ construction.reservation_acceptance_period_start_on || '-' }}
+              /
+              {{ construction.reservation_acceptance_period_end_on || '-' }}
+            </dd>
+          </div>
+          <div>
+            <dt>作業時間</dt>
+            <dd>
+              {{ construction.work_start_time || '-' }}
+              -
+              {{ construction.work_end_time || '-' }}
+            </dd>
+          </div>
+          <div>
+            <dt>休憩時間</dt>
+            <dd>
+              {{ construction.break_start_time || '-' }}
+              -
+              {{ construction.break_end_time || '-' }}
+            </dd>
+          </div>
+          <div>
+            <dt>同期日時</dt>
+            <dd>{{ construction.last_synced_at_display || '-' }}</dd>
+          </div>
+        </dl>
+        @if(construction.message_to_resident)
+          <div class="message-box">
+            <h3>居住者向けメッセージ</h3>
+            <p>{{ construction.message_to_resident }}</p>
+          </div>
+        @end
+      </section>
+
+      <aside class="panel">
+        <div class="panel-heading">
+          <h2>集計</h2>
+          <span>Summary</span>
+        </div>
+        <div class="metric-stack">
+          <article>
+            <p>部屋</p>
+            <strong>{{ metrics.roomCount }}</strong>
+          </article>
+          <article>
+            <p>予約</p>
+            <strong>{{ metrics.reservationCount }}</strong>
+          </article>
+          <article>
+            <p>作業枠</p>
+            <strong>{{ metrics.workSlotCount }}</strong>
+          </article>
+        </div>
+      </aside>
+    </div>
+
+    <div class="dashboard-grid detail-grid">
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>予約部屋一覧</h2>
+          <span>Reserved rooms</span>
+        </div>
+        <div class="reservation-room-groups">
+          @each(group in reservationGroups)
+            <section class="reservation-day">
+              <h3>{{ group.dateLabel }}</h3>
+              <div class="reservation-chip-list">
+                @each(reservation in group.reservations)
+                  <span
+                    class="reservation-chip {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
+                  >
+                    <strong>{{ reservation.roomNo }}</strong>
+                    <small>{{ reservation.timeRange }}</small>
+                  </span>
+                @end
+              </div>
+            </section>
+          @else
+            <p class="empty-list">予約データはありません</p>
+          @end
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>タイムテーブル</h2>
+          <span>Timetable</span>
+        </div>
+        <div class="timetable-wrap">
+          <table class="timetable-table">
+            <thead>
+              <tr>
+                <th>時間</th>
+                @each(date in reservationTimetable.dates)
+                  <th>{{ date.dateLabel }}</th>
+                @end
+              </tr>
+            </thead>
+            <tbody>
+              @each(slot in reservationTimetable.slots)
+                <tr>
+                  <th>{{ slot.timeRange }}</th>
+                  @each(cell in slot.cells)
+                    <td>
+                      @each(reservation in cell.reservations)
+                        <span
+                          class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
+                        >
+                          <strong>{{ reservation.roomNo }}</strong>
+                          <small>{{ reservation.timeRange }}</small>
+                        </span>
+                      @else
+                        <span class="timetable-empty">-</span>
+                      @end
+                    </td>
+                  @end
+                </tr>
+              @else
+                <tr>
+                  <td colspan="{{ timetableColspan }}" class="empty-cell">
+                    予約データはありません
+                  </td>
+                </tr>
+              @end
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>部屋一覧</h2>
+          <span>Rooms</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>部屋番号</th>
+                <th>階</th>
+                <th>状態</th>
+                <th>予約</th>
+                <th>メモ</th>
+                <th>同期日時</th>
+              </tr>
+            </thead>
+            <tbody>
+              @each(room in rooms)
+                <tr>
+                  <td>{{ room.room_no || '-' }}</td>
+                  <td>{{ room.floor_no || '-' }}</td>
+                  <td><span class="status-pill">{{ room.status || '未設定' }}</span></td>
+                  <td>{{ room.has_reservation ? 'あり' : 'なし' }}</td>
+                  <td>
+                    @if(room.has_message || room.has_remarks || room.has_additional_flag)
+                      {{ room.has_message ? 'メッセージ ' : '' }}
+                      {{ room.has_remarks ? '備考 ' : '' }}
+                      {{ room.has_additional_flag ? '追加あり' : '' }}
+                    @else
+                      -
+                    @end
+                  </td>
+                  <td>{{ room.last_synced_at_display || '-' }}</td>
+                </tr>
+              @else
+                <tr>
+                  <td colspan="6" class="empty-cell">部屋データはありません</td>
+                </tr>
+              @end
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+@end

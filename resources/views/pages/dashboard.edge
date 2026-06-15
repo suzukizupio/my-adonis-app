@@ -1,0 +1,85 @@
+@layout()
+  <section class="dashboard itene-dashboard">
+    <div class="dashboard-heading">
+      <div>
+        <p>ITENE</p>
+        <h1>工事・予約管理</h1>
+      </div>
+      <span>{{ auth.user.fullName || auth.user.email }}</span>
+    </div>
+    @if(syncStatus?.error)
+      <div class="sync-alert">
+        最新同期に失敗しました。保存済みデータを表示しています:
+        {{ syncStatus.error }}
+      </div>
+    @end
+
+    <div class="metric-grid">
+      <article>
+        <p>工事</p>
+        <strong>{{ metrics.constructionCount }}</strong>
+        <span>同期済み</span>
+      </article>
+      <article>
+        <p>部屋</p>
+        <strong>{{ metrics.roomCount }}</strong>
+        <span>保存済み</span>
+      </article>
+      <article>
+        <p>予約</p>
+        <strong>{{ metrics.reservationCount }}</strong>
+        <span>取得済み</span>
+      </article>
+      <article>
+        <p>作業枠</p>
+        <strong>{{ metrics.workSlotCount }}</strong>
+        <span>正規化済み</span>
+      </article>
+    </div>
+
+    <div class="dashboard-grid itene-grid single-panel-grid">
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>工事一覧</h2>
+          <span>Latest sync</span>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>工事ID</th>
+                <th>工事名</th>
+                <th>期間</th>
+                <th>状態</th>
+                <th>同期日時</th>
+              </tr>
+            </thead>
+            <tbody>
+              @each(construction in constructions)
+                <tr>
+                  <td>{{ construction.itene_id }}</td>
+                  <td>
+                    <a class="table-link" href="/constructions/{{ construction.id }}">
+                      {{ construction.name || construction.code || '詳細を見る' }}
+                    </a>
+                  </td>
+                  <td>
+                    {{ construction.whole_period_start_on || '-' }}
+                    <span class="date-separator">/</span>
+                    {{ construction.whole_period_end_on || '-' }}
+                  </td>
+                  <td><span class="status-pill">{{ construction.status || '未設定' }}</span></td>
+                  <td>{{ construction.last_synced_at_display || '-' }}</td>
+                </tr>
+              @else
+                <tr>
+                  <td colspan="5" class="empty-cell">同期済みの工事はありません</td>
+                </tr>
+              @end
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </section>
+@end
