@@ -110,7 +110,6 @@ export default class IteneDashboardController {
           'id',
           'room_no',
           'floor_no',
-          'status',
           'has_reservation',
           'has_message',
           'has_remarks',

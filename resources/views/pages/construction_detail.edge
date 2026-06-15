@@ -185,7 +185,6 @@
               <tr>
                 <th>部屋番号</th>
                 <th>階</th>
-                <th>状態</th>
                 <th>予約</th>
                 <th>メモ</th>
                 <th>同期日時</th>
@@ -196,7 +195,6 @@
                 <tr>
                   <td>{{ room.room_no || '-' }}</td>
                   <td>{{ room.floor_no || '-' }}</td>
-                  <td><span class="status-pill">{{ room.status || '未設定' }}</span></td>
                   <td>{{ room.has_reservation ? 'あり' : 'なし' }}</td>
                   <td>
                     @if(room.has_message || room.has_remarks || room.has_additional_flag)
@@ -211,7 +209,7 @@
                 </tr>
               @else
                 <tr>
-                  <td colspan="6" class="empty-cell">部屋データはありません</td>
+                  <td colspan="5" class="empty-cell">部屋データはありません</td>
                 </tr>
               @end
             </tbody>
