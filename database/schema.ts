@@ -61,7 +61,7 @@ export class IteneConstructionRoomSchema extends BaseModel {
 }
 
 export class IteneConstructionSchema extends BaseModel {
-  static $columns = ['breakEndTime', 'breakStartTime', 'buildingCompleteOnDate', 'buildingHousehold', 'buildingId', 'buildingName', 'code', 'createdAt', 'id', 'iteneCreatedAt', 'iteneId', 'iteneUpdatedAt', 'lastSyncedAt', 'messageToResident', 'name', 'raw', 'reservationAcceptancePeriodEndOn', 'reservationAcceptancePeriodStartOn', 'residentialPeriodEndOn', 'residentialPeriodStartOn', 'status', 'updatedAt', 'wholePeriodEndOn', 'wholePeriodStartOn', 'workEndTime', 'workStartTime'] as const
+  static $columns = ['breakEndTime', 'breakStartTime', 'buildingCompleteOnDate', 'buildingHousehold', 'buildingId', 'buildingName', 'code', 'createdAt', 'id', 'iteneCreatedAt', 'iteneId', 'iteneUpdatedAt', 'lastSyncedAt', 'messageToResident', 'name', 'optionApplicationCount', 'raw', 'reservationAcceptancePeriodEndOn', 'reservationAcceptancePeriodStartOn', 'residentialPeriodEndOn', 'residentialPeriodStartOn', 'status', 'updatedAt', 'wholePeriodEndOn', 'wholePeriodStartOn', 'workEndTime', 'workStartTime'] as const
   $columns = IteneConstructionSchema.$columns
   @column()
   declare breakEndTime: string | null
@@ -93,6 +93,8 @@ export class IteneConstructionSchema extends BaseModel {
   declare messageToResident: string | null
   @column()
   declare name: string | null
+  @column()
+  declare optionApplicationCount: number | null
   @column()
   declare raw: any | null
   @column.date()
