@@ -103,27 +103,47 @@ export default class IteneDashboardController {
       countJoinedWorkSlots(construction.id),
     ])
 
-    const rooms = (
-      await db
-        .from('itene_construction_rooms')
-        .select(
-          'id',
-          'room_no',
-          'floor_no',
-          'has_reservation',
-          'has_message',
-          'has_remarks',
-          'has_additional_flag',
-          'has_option',
-          'option_items',
-          'option_paid',
-          'last_synced_at'
-        )
-        .where('itene_construction_id', construction.id)
-        // 部屋番号を数値として昇順（若番順）に並べる。文字列順だと 1001 が 203 より先に来てしまう。
-        // ラウンジ等の番号でない部屋は末尾にまとめる
-        .orderByRaw("CASE WHEN room_no GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(room_no AS INTEGER), room_no")
-    ).map(withSyncedAtDisplay)
+    const roomRows = await db
+      .from('itene_construction_rooms')
+      .select(
+        'id',
+        'room_no',
+        'floor_no',
+        'has_reservation',
+        'has_message',
+        'has_remarks',
+        'has_additional_flag',
+        'has_option',
+        'option_items',
+        'option_paid',
+        'last_synced_at'
+      )
+      .where('itene_construction_id', construction.id)
+      // 部屋番号を数値として昇順（若番順）に並べる。文字列順だと 1001 が 203 より先に来てしまう。
+      // ラウンジ等の番号でない部屋は末尾にまとめる
+      .orderByRaw("CASE WHEN room_no GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(room_no AS INTEGER), room_no")
+
+    // 部屋ごとの「予約を入力した日時」。居住者が予約を確定した最新の reservation_date を採用する。
+    // itene_created_at はレコードの一括生成日時で予約入力とは無関係のため使わない。
+    const reservationDateRows = await db
+      .from('itene_reservations')
+      .join(
+        'itene_construction_rooms',
+        'itene_reservations.itene_construction_room_id',
+        'itene_construction_rooms.id'
+      )
+      .where('itene_construction_rooms.itene_construction_id', construction.id)
+      .groupBy('itene_reservations.itene_construction_room_id')
+      .select('itene_reservations.itene_construction_room_id as room_id')
+      .max('itene_reservations.reservation_date as reservation_date')
+    const reservationDateByRoomId = new Map<number, unknown>(
+      reservationDateRows.map((row) => [Number(row.room_id), row.reservation_date])
+    )
+
+    const rooms = roomRows.map((room) => ({
+      ...withSyncedAtDisplay(room),
+      reservation_entered_at_display: formatJstTimestamp(reservationDateByRoomId.get(room.id)),
+    }))
 
     const reservations = await db
       .from('itene_reservations')

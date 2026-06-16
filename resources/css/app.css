@@ -542,38 +542,31 @@ a.status-tab:hover {
 .timetable-empty {
   color: var(--gray-6);
 }
-/* オプション申込マーク */
+/* オプション申込マーク（アイコンのみ。色は文脈で切り替える） */
 .option-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 5px;
-  margin-left: 5px;
-  border-radius: 999px;
-  background: #ea580c;
-  color: #fff;
+  margin-right: 5px;
+  color: #1f6fb2;
   line-height: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   cursor: default;
   vertical-align: middle;
 }
 .option-mark svg {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
-/* タイムテーブルの青セル内では、暖色のバッジをやめて白いアイコンで馴染ませる */
+/* タイムテーブルの青セル内では白で馴染ませる（部屋番号の後ろに置く） */
 .reservation-block .option-mark {
-  min-width: 0;
-  height: auto;
-  padding: 0;
+  margin-right: 0;
   margin-left: 4px;
-  border-radius: 0;
-  background: none;
-  box-shadow: none;
   color: rgba(255, 255, 255, 0.92);
+}
+.reservation-block .option-mark svg {
+  width: 14px;
+  height: 14px;
 }
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,

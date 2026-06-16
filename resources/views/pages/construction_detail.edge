@@ -193,7 +193,7 @@
                 <th>予約</th>
                 <th>オプション</th>
                 <th>メモ</th>
-                <th>同期日時</th>
+                <th>予約入力日時</th>
               </tr>
             </thead>
             <tbody>
@@ -219,7 +219,7 @@
                       -
                     @end
                   </td>
-                  <td>{{ room.last_synced_at_display || '-' }}</td>
+                  <td>{{ room.reservation_entered_at_display || '-' }}</td>
                 </tr>
               @else
                 <tr>
