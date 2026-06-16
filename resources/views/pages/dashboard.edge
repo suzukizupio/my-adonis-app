@@ -66,7 +66,7 @@
                 <th>工事名</th>
                 <th>期間</th>
                 <th>状態</th>
-                <th>同期日時</th>
+                <th>オプション申込</th>
               </tr>
             </thead>
             <tbody>
@@ -84,7 +84,18 @@
                     {{ construction.whole_period_end_on || '-' }}
                   </td>
                   <td><span class="status-pill is-{{ construction.status_display.variant }}">{{ construction.status_display.label }}</span></td>
-                  <td>{{ construction.last_synced_at_display || '-' }}</td>
+                  <td>
+                    @if(construction.option_display.state === 'has')
+                      <span class="option-pill" title="オプション申込のある部屋が {{ construction.option_display.count }} 室あります">
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg>
+                        {{ construction.option_display.label }}
+                      </span>
+                    @elseif(construction.option_display.state === 'none')
+                      <span class="option-none">なし</span>
+                    @else
+                      <span class="option-none is-unknown" title="この工事の詳細をまだ同期していません">未取得</span>
+                    @end
+                  </td>
                 </tr>
               @else
                 <tr>

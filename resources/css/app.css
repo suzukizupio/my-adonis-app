@@ -578,6 +578,30 @@ a.status-tab:hover {
   width: 12px;
   height: 12px;
 }
+/* 一覧の「オプション申込」セル */
+.option-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #e6f1fb;
+  color: #185fa5;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.option-pill svg {
+  width: 12px;
+  height: 12px;
+}
+.option-none {
+  color: var(--gray-6);
+  font-size: 12px;
+}
+.option-none.is-unknown {
+  opacity: 0.7;
+}
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,
 .timetable-table tbody tr.is-afternoon-start > td {

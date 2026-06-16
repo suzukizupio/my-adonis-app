@@ -27,7 +27,8 @@ export default class IteneDashboardController {
           'status',
           'whole_period_start_on',
           'whole_period_end_on',
-          'last_synced_at'
+          'last_synced_at',
+          'option_application_count'
         )
         .where('status', statusFilter)
         .orderBy('last_synced_at', 'desc')
@@ -36,6 +37,7 @@ export default class IteneDashboardController {
     ).map((row) => ({
       ...withSyncedAtDisplay(row),
       status_display: describeConstructionStatus(row.status),
+      option_display: describeOptionApplications(row.option_application_count),
     }))
 
     return view.render('pages/dashboard', {
@@ -500,6 +502,21 @@ function buildStatusTabs(activeStatus: string, statusCounts: { byStatus: Record<
       isActive: status === activeStatus,
     }
   })
+}
+
+// 一覧で「オプション申込を受け付けている工事か」を表示するための判定。
+// null = 予約同期がまだ（未取得）、0 = 申込なし、N = N部屋で申込あり
+function describeOptionApplications(count: unknown) {
+  if (count === null || count === undefined) {
+    return { state: 'unknown', label: '未取得', count: null as number | null }
+  }
+
+  const parsed = Number(count)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return { state: 'none', label: 'なし', count: 0 }
+  }
+
+  return { state: 'has', label: `${parsed}件`, count: parsed }
 }
 
 function withSyncedAtDisplay<T extends { last_synced_at?: unknown }>(record: T) {

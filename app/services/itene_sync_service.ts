@@ -86,6 +86,13 @@ export default class IteneSyncService {
         }
 
         await this.deleteMissingRoomsForConstruction(construction.id, rooms, trx)
+
+        // 一覧で「オプション申込を受け付けている工事か」を判別できるよう、
+        // 申込のある部屋数を工事レコードに保存する（list 同期では上書きされない）
+        await trx
+          .from('itene_constructions')
+          .where('id', construction.id)
+          .update({ option_application_count: optionMap.size })
       })
     }
 
