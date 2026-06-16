@@ -24,6 +24,7 @@ export default class IteneDashboardController {
           'code',
           'name',
           'building_name',
+          'building_household',
           'status',
           'whole_period_start_on',
           'whole_period_end_on',

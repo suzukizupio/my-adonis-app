@@ -64,6 +64,7 @@
               <tr>
                 <th>工事ID</th>
                 <th>工事名</th>
+                <th>住戸数</th>
                 <th>期間</th>
                 <th>状態</th>
                 <th>オプション申込</th>
@@ -78,6 +79,7 @@
                       {{ construction.name || construction.code || '詳細を見る' }}
                     </a>
                   </td>
+                  <td>{{ construction.building_household || '-' }}</td>
                   <td>
                     {{ construction.whole_period_start_on || '-' }}
                     <span class="date-separator">/</span>
@@ -99,7 +101,7 @@
                 </tr>
               @else
                 <tr>
-                  <td colspan="5" class="empty-cell">該当する状態の工事はありません</td>
+                  <td colspan="6" class="empty-cell">該当する状態の工事はありません</td>
                 </tr>
               @end
             </tbody>
