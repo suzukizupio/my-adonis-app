@@ -519,6 +519,7 @@ a.status-tab:hover {
   white-space: nowrap;
 }
 .reservation-block {
+  position: relative;
   display: grid;
   gap: 2px;
   min-height: 48px;
@@ -534,6 +535,8 @@ a.status-tab:hover {
 .reservation-block strong {
   color: #fff;
   font-size: 14px;
+  /* 右上の丸バッジと部屋番号が重ならないよう右側に余白を確保 */
+  padding-right: 22px;
 }
 .reservation-block small {
   color: rgba(255, 255, 255, 0.82);
@@ -558,15 +561,22 @@ a.status-tab:hover {
   height: 16px;
   display: block;
 }
-/* タイムテーブルの青セル内では白で馴染ませる（部屋番号の後ろに置く） */
+/* タイムテーブルの青セル内は、右上角に白丸バッジ＋青アイコンで目立たせる */
 .reservation-block .option-mark {
-  margin-right: 0;
-  margin-left: 4px;
-  color: rgba(255, 255, 255, 0.92);
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #1f6fb2;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 .reservation-block .option-mark svg {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
 }
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,
