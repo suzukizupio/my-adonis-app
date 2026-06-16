@@ -156,7 +156,7 @@
                           <strong>
                             {{ reservation.roomNo }}
                             @if(reservation.hasOption)
-                              <span class="option-mark" title="オプション申込あり{{ reservation.optionItems ? '：' + reservation.optionItems : '' }}{{ reservation.optionPaid ? '（決済済み）' : '' }}">🛒</span>
+                              <span class="option-mark" title="オプション申込あり{{ reservation.optionItems ? '：' + reservation.optionItems : '' }}{{ reservation.optionPaid ? '（決済済み）' : '' }}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></span>
                             @end
                           </strong>
                           <small>{{ reservation.timeRange }}</small>
@@ -204,7 +204,7 @@
                   <td>{{ room.has_reservation ? 'あり' : 'なし' }}</td>
                   <td>
                     @if(room.has_option)
-                      <span class="option-mark" title="{{ room.option_paid ? '決済済み' : '申込あり' }}">🛒</span>
+                      <span class="option-mark" title="{{ room.option_paid ? '決済済み' : '申込あり' }}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></span>
                       {{ room.option_items || 'あり' }}
                     @else
                       -

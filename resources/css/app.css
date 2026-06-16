@@ -522,9 +522,9 @@ a.status-tab:hover {
   display: grid;
   gap: 2px;
   min-height: 48px;
-  border: 1px solid #0f7b45;
+  border: 1px solid #1b4f8a;
   border-radius: 6px;
-  background: #2f6f3a;
+  background: #1f6fb2;
   color: #fff;
   padding: 7px 8px;
 }
@@ -544,10 +544,36 @@ a.status-tab:hover {
 }
 /* オプション申込マーク */
 .option-mark {
-  font-size: 12px;
-  margin-left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  margin-left: 5px;
+  border-radius: 999px;
+  background: #ea580c;
+  color: #fff;
+  line-height: 1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   cursor: default;
   vertical-align: middle;
+}
+.option-mark svg {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+/* タイムテーブルの青セル内では、暖色のバッジをやめて白いアイコンで馴染ませる */
+.reservation-block .option-mark {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  margin-left: 4px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.92);
 }
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,
