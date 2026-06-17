@@ -8,7 +8,7 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class IteneConstructionRoomSchema extends BaseModel {
-  static $columns = ['buildingId', 'constructionCode', 'constructionId', 'createdAt', 'floorNo', 'hasAdditionalFlag', 'hasMessage', 'hasOption', 'hasRemarks', 'hasReservation', 'id', 'iteneConstructionId', 'iteneCreatedAt', 'iteneRoomId', 'iteneUpdatedAt', 'lastSyncedAt', 'optionItems', 'optionPaid', 'raw', 'roomNo', 'spaceCode', 'spaceName', 'status', 'updatedAt'] as const
+  static $columns = ['buildingId', 'constructionCode', 'constructionId', 'createdAt', 'floorNo', 'hasAdditionalFlag', 'hasMessage', 'hasOption', 'hasRemarks', 'hasReservation', 'id', 'iteneConstructionId', 'iteneCreatedAt', 'iteneRoomId', 'iteneUpdatedAt', 'lastSyncedAt', 'message', 'optionItems', 'optionPaid', 'raw', 'remarks', 'roomNo', 'spaceCode', 'spaceName', 'status', 'updatedAt'] as const
   $columns = IteneConstructionRoomSchema.$columns
   @column()
   declare buildingId: bigint | number | null
@@ -43,11 +43,15 @@ export class IteneConstructionRoomSchema extends BaseModel {
   @column.dateTime()
   declare lastSyncedAt: DateTime | null
   @column()
+  declare message: string | null
+  @column()
   declare optionItems: string | null
   @column()
   declare optionPaid: boolean
   @column()
   declare raw: any | null
+  @column()
+  declare remarks: string | null
   @column()
   declare roomNo: string | null
   @column()

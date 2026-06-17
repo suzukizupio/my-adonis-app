@@ -708,6 +708,46 @@ a.status-tab:hover {
   color: var(--gray-10);
   min-width: 0;
 }
+/* 部屋一覧「メモ」セル：備考・メッセージの本文をバッジ付きで表示する */
+.memo-cell {
+  max-width: 360px;
+}
+.memo-item {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+}
+.memo-item + .memo-item {
+  margin-top: 7px;
+}
+.memo-label {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.7;
+  white-space: nowrap;
+}
+.memo-label.is-remarks {
+  background: #fef3c7;
+  color: #92500e;
+}
+.memo-label.is-message {
+  background: #e0edff;
+  color: #1f4f9c;
+}
+.memo-label.is-additional {
+  background: var(--gray-3);
+  color: var(--gray-7);
+}
+.memo-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--gray-8);
+  font-size: 13px;
+  line-height: 1.6;
+}
 .message-box {
   margin-top: 18px;
   border: 1px solid var(--gray-3);

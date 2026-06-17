@@ -210,11 +210,25 @@
                       -
                     @end
                   </td>
-                  <td>
-                    @if(room.has_message || room.has_remarks || room.has_additional_flag)
-                      {{ room.has_message ? 'メッセージ ' : '' }}
-                      {{ room.has_remarks ? '備考 ' : '' }}
-                      {{ room.has_additional_flag ? '追加あり' : '' }}
+                  <td class="memo-cell">
+                    @if(room.remarks || room.message || room.has_additional_flag)
+                      @if(room.remarks)
+                        <div class="memo-item">
+                          <span class="memo-label is-remarks">備考</span>
+                          <span class="memo-text">{{ room.remarks }}</span>
+                        </div>
+                      @end
+                      @if(room.message)
+                        <div class="memo-item">
+                          <span class="memo-label is-message">メッセージ</span>
+                          <span class="memo-text">{{ room.message }}</span>
+                        </div>
+                      @end
+                      @if(room.has_additional_flag)
+                        <div class="memo-item">
+                          <span class="memo-label is-additional">追加あり</span>
+                        </div>
+                      @end
                     @else
                       -
                     @end

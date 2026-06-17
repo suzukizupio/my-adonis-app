@@ -134,6 +134,9 @@ export default class IteneDashboardController {
         'has_message',
         'has_remarks',
         'has_additional_flag',
+        'message',
+        'remarks',
+        'raw',
         'has_option',
         'option_items',
         'option_paid',
@@ -161,10 +164,16 @@ export default class IteneDashboardController {
       reservationDateRows.map((row) => [Number(row.room_id), row.reservation_date])
     )
 
-    const rooms = roomRows.map((room) => ({
-      ...withSyncedAtDisplay(room),
-      reservation_entered_at_display: formatJstTimestamp(reservationDateByRoomId.get(room.id)),
-    }))
+    const rooms = roomRows.map((room) => {
+      const { raw, ...rest } = room
+      return {
+        ...withSyncedAtDisplay(rest),
+        // message/remarks カラム導入前に同期した既存データは raw（生JSON）から本文を補完する
+        message: rest.message ?? extractRoomMemo(raw, 'message'),
+        remarks: rest.remarks ?? extractRoomMemo(raw, 'remarks'),
+        reservation_entered_at_display: formatJstTimestamp(reservationDateByRoomId.get(room.id)),
+      }
+    })
 
     const reservations = await db
       .from('itene_reservations')
@@ -689,4 +698,19 @@ function parseStoredDateTime(value: unknown) {
   const hasTimeZone = /(?:z|[+-]\d{2}:?\d{2})$/i.test(normalized)
 
   return new Date(hasTimeZone ? normalized : `${normalized}Z`)
+}
+
+// raw（同期時に保存した生JSON）から本文を取り出すフォールバック。
+// message/remarks カラム導入前に同期した既存データでも内容を表示できるようにする
+function extractRoomMemo(raw: unknown, key: 'message' | 'remarks'): string | null {
+  if (typeof raw !== 'string' || raw === '') {
+    return null
+  }
+
+  try {
+    const value = (JSON.parse(raw) as Record<string, unknown> | null)?.[key]
+    return value === undefined || value === null || value === '' ? null : String(value)
+  } catch {
+    return null
+  }
 }

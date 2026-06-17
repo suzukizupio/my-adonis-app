@@ -231,6 +231,9 @@ export default class IteneSyncService {
   ) {
     const now = nowSql()
     const reservations = toArray(record.Reservations)
+    // メッセージ・備考は有無フラグだけでなく本文も保存する（一覧で内容を確認できるように）
+    const message = nullableString(record.message)
+    const remarks = nullableString(record.remarks)
     const payload = {
       itene_construction_id: constructionLocalId,
       itene_room_id: nullableNumber(record.id),
@@ -243,8 +246,10 @@ export default class IteneSyncService {
       space_name: nullableString(record.spaceName),
       status: nullableString(record.status),
       has_reservation: reservations.length > 0,
-      has_message: Boolean(nullableString(record.message)),
-      has_remarks: Boolean(nullableString(record.remarks)),
+      message,
+      remarks,
+      has_message: Boolean(message),
+      has_remarks: Boolean(remarks),
       has_additional_flag: reservations.some((reservation) =>
         nullableBoolean(reservation.additionalFlag)
       ),
