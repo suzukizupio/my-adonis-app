@@ -1,5 +1,6 @@
 import db from '@adonisjs/lucid/services/db'
 import { ensureRecentIteneData } from '#services/itene_auto_sync_service'
+import { renderTimetablePdf } from '#services/timetable_pdf_renderer'
 import type { HttpContext } from '@adonisjs/core/http'
 
 export default class IteneDashboardController {
@@ -75,10 +76,46 @@ export default class IteneDashboardController {
   }
 
   async show({ params, response, view }: HttpContext) {
+    const detail = await this.loadConstructionDetail(params.id)
+
+    if (!detail) {
+      response.status(404)
+      return view.render('pages/errors/not_found')
+    }
+
+    return view.render('pages/construction_detail', {
+      ...detail,
+      timetableColspan: detail.reservationTimetable.dates.length + 1,
+    })
+  }
+
+  async timetablePdf({ params, response, view }: HttpContext) {
+    const detail = await this.loadConstructionDetail(params.id)
+
+    if (!detail) {
+      response.status(404)
+      return view.render('pages/errors/not_found')
+    }
+
+    const html = await view.render('pages/construction_timetable_pdf', {
+      ...detail,
+      exportedAt: formatJstTimestamp(new Date()),
+    })
+    const pdf = await renderTimetablePdf(html)
+    const fileName = buildTimetablePdfFileName(detail.construction)
+    const fallbackName = `timetable-${detail.construction.itene_id ?? detail.construction.id}.pdf`
+
+    response.header('content-type', 'application/pdf')
+    response.header('content-disposition', contentDisposition(fileName, fallbackName))
+
+    return response.send(pdf)
+  }
+
+  private async loadConstructionDetail(id: string | number) {
     const storedConstruction = await db
       .from('itene_constructions')
       .select('id', 'itene_id')
-      .where('id', params.id)
+      .where('id', id)
       .first()
 
     const syncStatus = storedConstruction
@@ -110,12 +147,11 @@ export default class IteneDashboardController {
         'message_to_resident',
         'last_synced_at'
       )
-      .where('id', params.id)
+      .where('id', id)
       .first()
 
     if (!construction) {
-      response.status(404)
-      return view.render('pages/errors/not_found')
+      return null
     }
 
     const [roomCount, reservationCount, workSlotCount, holidayCount] = await Promise.all([
@@ -233,7 +269,7 @@ export default class IteneDashboardController {
       breakStartTime: construction.break_start_time,
     })
 
-    return view.render('pages/construction_detail', {
+    return {
       construction: {
         ...withSyncedAtDisplay(construction),
         status_display: describeConstructionStatus(construction.status),
@@ -248,9 +284,8 @@ export default class IteneDashboardController {
       reservations: reservationItems,
       holidays: holidayItems,
       reservationTimetable,
-      timetableColspan: reservationTimetable.dates.length + 1,
       syncStatus,
-    })
+    }
   }
 }
 
@@ -598,6 +633,26 @@ function minutesOfDay(value: string) {
 function finiteNumber(value: unknown) {
   const number = Number(value)
   return Number.isFinite(number) ? number : null
+}
+
+function buildTimetablePdfFileName(construction: Record<string, any>) {
+  const title =
+    construction.building_name ||
+    construction.name ||
+    construction.code ||
+    construction.itene_id ||
+    'construction'
+  const safeTitle = String(title)
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  return `${safeTitle}_タイムテーブル.pdf`
+}
+
+function contentDisposition(fileName: string, fallbackName: string) {
+  const safeFallbackName = fallbackName.replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_')
+  return `attachment; filename="${safeFallbackName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`
 }
 
 const CONSTRUCTION_STATUS_LABELS: Record<string, { label: string; variant: string }> = {

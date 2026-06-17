@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      {{ construction.building_name || construction.name || construction.code || '工事' }}
+      タイムテーブル
+    </title>
+    <style>
+      @page {
+        size: A4 landscape;
+        margin: 8mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: #111827;
+        font-family: 'Yu Gothic', 'YuGothic', 'Meiryo', 'Noto Sans JP', system-ui, sans-serif;
+        font-size: 8pt;
+        line-height: 1.35;
+      }
+
+      .pdf-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8mm;
+        margin-bottom: 4mm;
+      }
+
+      .pdf-title p {
+        margin: 0 0 1.5mm;
+        color: #4b5563;
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      .pdf-title h1 {
+        margin: 0;
+        font-size: 16pt;
+        line-height: 1.15;
+      }
+
+      .pdf-meta {
+        display: grid;
+        grid-template-columns: auto auto;
+        gap: 1.2mm 3mm;
+        min-width: 64mm;
+        color: #374151;
+        font-size: 7pt;
+        text-align: right;
+      }
+
+      .pdf-meta dt {
+        color: #6b7280;
+        font-weight: 700;
+      }
+
+      .pdf-meta dd {
+        margin: 0;
+      }
+
+      .timetable-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      .timetable-table th,
+      .timetable-table td {
+        border: 0.45pt solid #9ca3af;
+        padding: 1.7mm;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .timetable-table thead th {
+        background: #eef2f7;
+        color: #374151;
+        font-size: 7pt;
+        font-weight: 700;
+      }
+
+      .timetable-table thead th:first-child,
+      .timetable-table tbody th {
+        width: 20mm;
+      }
+
+      .timetable-table tbody th {
+        color: #374151;
+        font-size: 7pt;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .timetable-table tbody td {
+        min-height: 12mm;
+      }
+
+      .timetable-table tbody tr.is-afternoon-start > th,
+      .timetable-table tbody tr.is-afternoon-start > td {
+        border-top: 1.3pt solid #374151;
+      }
+
+      .reservation-block {
+        display: block;
+        break-inside: avoid;
+        min-height: 10.5mm;
+        margin-bottom: 1.2mm;
+        padding: 1.5mm 1.8mm;
+        border: 0.75pt solid #1b4f8a;
+        border-radius: 1.8mm;
+        background: #1f6fb2;
+        color: #ffffff;
+      }
+
+      .reservation-block:last-child {
+        margin-bottom: 0;
+      }
+
+      .reservation-block strong {
+        display: block;
+        font-size: 8pt;
+        font-weight: 700;
+      }
+
+      .reservation-block small {
+        display: block;
+        margin-top: 0.8mm;
+        color: rgba(255, 255, 255, 0.88);
+        font-size: 6.8pt;
+      }
+
+      .reservation-block.is-holiday {
+        border-color: #737b85;
+        background: #9ca3af;
+      }
+
+      .reservation-block.is-additional {
+        border-color: #d97706;
+      }
+
+      .reservation-block.is-locked {
+        border-color: #9ca3af;
+        background: #f3f4f6;
+        color: #111827;
+      }
+
+      .reservation-block.is-locked small {
+        color: #374151;
+      }
+
+      .option-label {
+        display: inline-block;
+        margin-left: 1.4mm;
+        padding: 0.2mm 1.2mm;
+        border-radius: 999px;
+        background: #ffffff;
+        color: #1f6fb2;
+        font-size: 5.8pt;
+        font-weight: 700;
+        vertical-align: 0.3mm;
+      }
+
+      .timetable-empty {
+        color: #9ca3af;
+      }
+
+      .pdf-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 4mm;
+        margin-top: 3mm;
+        color: #6b7280;
+        font-size: 6.8pt;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="pdf-header">
+      <div class="pdf-title">
+        <p>Timetable</p>
+        <h1>
+          {{
+            construction.building_name ||
+            construction.name ||
+            construction.code ||
+            '工事詳細'
+          }}
+        </h1>
+      </div>
+      <dl class="pdf-meta">
+        <dt>工事ID</dt>
+        <dd>{{ construction.itene_id }}</dd>
+        <dt>工事期間</dt>
+        <dd>
+          {{ construction.whole_period_start_on || '-' }}
+          /
+          {{ construction.whole_period_end_on || '-' }}
+        </dd>
+        <dt>作業時間</dt>
+        <dd>{{ construction.work_start_time || '-' }} - {{ construction.work_end_time || '-' }}</dd>
+        <dt>出力日時</dt>
+        <dd>{{ exportedAt }}</dd>
+      </dl>
+    </header>
+
+    <table class="timetable-table">
+      <thead>
+        <tr>
+          <th>時間</th>
+          @each(date in reservationTimetable.dates)
+            <th>{{ date.dateLabel }}</th>
+          @end
+        </tr>
+      </thead>
+      <tbody>
+        @each(slot in reservationTimetable.slots)
+          <tr class="{{ slot.isAfternoonStart ? 'is-afternoon-start' : '' }}">
+            <th>{{ slot.timeRange }}</th>
+            @each(cell in slot.cells)
+              <td>
+                @each(holiday in cell.holidays)
+                  <span class="reservation-block is-holiday">
+                    <strong>{{ holiday.name }}</strong>
+                    <small>{{ holiday.timeRange }}</small>
+                  </span>
+                @end
+                @each(reservation in cell.reservations)
+                  <span
+                    class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
+                  >
+                    <strong>
+                      {{ reservation.roomNo }}
+                      @if(reservation.hasOption)
+                        <span class="option-label">OP</span>
+                      @end
+                    </strong>
+                    <small>{{ reservation.timeRange }}</small>
+                  </span>
+                @end
+                @if(cell.holidays.length === 0 && cell.reservations.length === 0)
+                  <span class="timetable-empty">-</span>
+                @end
+              </td>
+            @end
+          </tr>
+        @else
+          <tr>
+            <td colspan="{{ reservationTimetable.dates.length + 1 }}">予約データはありません</td>
+          </tr>
+        @end
+      </tbody>
+    </table>
+
+    <footer class="pdf-footer">
+      <span>青: 予約</span>
+      <span>灰: 休工</span>
+      <span>OP: オプション申込あり</span>
+    </footer>
+  </body>
+</html>

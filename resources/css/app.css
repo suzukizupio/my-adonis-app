@@ -218,6 +218,30 @@ main {
   font-size: 20px;
   font-weight: 650;
 }
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+.panel-action-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--gray-4);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--gray-10);
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.panel-action-link:hover {
+  border-color: var(--gray-7);
+  color: var(--gray-12);
+}
 .bar-list {
   display: grid;
   gap: 18px;

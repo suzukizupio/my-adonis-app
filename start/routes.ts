@@ -28,6 +28,9 @@ router
     router.get('/', [IteneDashboardController, 'index']).as('home')
     router.get('/dashboard', [IteneDashboardController, 'index']).as('dashboard')
     router.get('/constructions/:id', [IteneDashboardController, 'show']).as('constructions.show')
+    router
+      .get('/constructions/:id/timetable.pdf', [IteneDashboardController, 'timetablePdf'])
+      .as('constructions.timetable_pdf')
     router.post('logout', [controllers.Session, 'destroy'])
   })
   .use(middleware.auth())

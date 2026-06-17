@@ -139,7 +139,12 @@
       <section class="panel">
         <div class="panel-heading">
           <h2>タイムテーブル</h2>
-          <span>Timetable</span>
+          <div class="panel-actions">
+            <span>Timetable</span>
+            <a class="panel-action-link" href="/constructions/{{ construction.id }}/timetable.pdf">
+              PDF出力
+            </a>
+          </div>
         </div>
         <div class="timetable-wrap">
           <table class="timetable-table">

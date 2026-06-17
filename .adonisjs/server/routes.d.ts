@@ -11,6 +11,7 @@ export type ScannedRoutes = {
     'home': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'constructions.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'constructions.timetable_pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'session.destroy': { paramsTuple?: []; params?: {} }
   }
   GET: {
@@ -19,6 +20,7 @@ export type ScannedRoutes = {
     'home': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'constructions.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'constructions.timetable_pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   HEAD: {
     'new_account.create': { paramsTuple?: []; params?: {} }
@@ -26,6 +28,7 @@ export type ScannedRoutes = {
     'home': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'constructions.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'constructions.timetable_pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   POST: {
     'new_account.store': { paramsTuple?: []; params?: {} }
