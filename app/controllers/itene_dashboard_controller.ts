@@ -6,33 +6,43 @@ export default class IteneDashboardController {
   async index({ request, view }: HttpContext) {
     const syncStatus = await ensureRecentIteneData({ scope: 'constructions' })
     const statusFilter = resolveStatusFilter(request.input('status'))
-    const [statusCounts, roomCount, reservationCount, workSlotCount] = await Promise.all([
-      countConstructionsByStatus(),
-      countRows('itene_construction_rooms'),
-      countRows('itene_reservations'),
-      countRows('itene_room_work_slots'),
-    ])
-    const filteredCount = statusCounts.byStatus[statusFilter] ?? 0
+    const search = resolveSearch(request.input('q'))
+    const sort = resolveSort(request.input('sort'))
+    const direction = resolveDirection(request.input('dir'))
+
+    const [statusCounts, roomCount, reservationCount, workSlotCount, filteredCount] =
+      await Promise.all([
+        countConstructionsByStatus(),
+        countRows('itene_construction_rooms'),
+        countRows('itene_reservations'),
+        countRows('itene_room_work_slots'),
+        countConstructions(statusFilter, search),
+      ])
+
     const pagination = resolvePagination(request.input('page'), filteredCount, 50)
 
+    const query = db
+      .from('itene_constructions')
+      .select(
+        'id',
+        'itene_id',
+        'code',
+        'name',
+        'building_name',
+        'building_household',
+        'status',
+        'whole_period_start_on',
+        'whole_period_end_on',
+        'last_synced_at',
+        'option_application_count'
+      )
+    applyConstructionFilters(query, statusFilter, search)
+
     const constructions = (
-      await db
-        .from('itene_constructions')
-        .select(
-          'id',
-          'itene_id',
-          'code',
-          'name',
-          'building_name',
-          'building_household',
-          'status',
-          'whole_period_start_on',
-          'whole_period_end_on',
-          'last_synced_at',
-          'option_application_count'
-        )
-        .where('status', statusFilter)
-        .orderBy('last_synced_at', 'desc')
+      await query
+        // 既定は期間（開始日）の新しい順。SQLite は DESC で NULL を末尾に並べる
+        .orderBy(SORT_COLUMNS[sort], direction)
+        .orderBy('itene_id', 'desc')
         .offset((pagination.currentPage - 1) * pagination.perPage)
         .limit(pagination.perPage)
     ).map((row) => ({
@@ -40,6 +50,8 @@ export default class IteneDashboardController {
       status_display: describeConstructionStatus(row.status),
       option_display: describeOptionApplications(row.option_application_count),
     }))
+
+    const baseQuery = buildQuery({ status: statusFilter, q: search, sort, dir: direction })
 
     return view.render('pages/dashboard', {
       metrics: {
@@ -52,7 +64,13 @@ export default class IteneDashboardController {
       pagination,
       syncStatus,
       statusFilter,
-      statusTabs: buildStatusTabs(statusFilter, statusCounts),
+      search,
+      sort,
+      direction,
+      baseQuery,
+      clearSearchHref: `?${buildQuery({ status: statusFilter, sort, dir: direction })}`,
+      sortLinks: buildSortLinks(statusFilter, search, sort, direction),
+      statusTabs: buildStatusTabs(statusFilter, statusCounts, search, sort, direction),
     })
   }
 
@@ -473,6 +491,79 @@ function resolveStatusFilter(raw: unknown) {
     : DEFAULT_CONSTRUCTION_STATUS_FILTER
 }
 
+// ソート可能な列。キー => 実カラム名
+const SORT_COLUMNS = {
+  period: 'whole_period_start_on',
+  id: 'itene_id',
+  name: 'name',
+  household: 'building_household',
+  option: 'option_application_count',
+} as const
+type SortKey = keyof typeof SORT_COLUMNS
+const DEFAULT_SORT: SortKey = 'period'
+
+function resolveSearch(raw: unknown): string {
+  const value = raw === null || raw === undefined ? '' : String(raw).trim()
+  return value.slice(0, 100)
+}
+
+function resolveSort(raw: unknown): SortKey {
+  const value = raw === null || raw === undefined ? '' : String(raw).trim()
+  return (value in SORT_COLUMNS ? value : DEFAULT_SORT) as SortKey
+}
+
+function resolveDirection(raw: unknown): 'asc' | 'desc' {
+  const value = raw === null || raw === undefined ? '' : String(raw).trim().toLowerCase()
+  return value === 'asc' ? 'asc' : 'desc'
+}
+
+// 状態フィルタ＋フリーワード検索（工事名・物件名・工事ID）を query builder に適用する
+function applyConstructionFilters(query: ReturnType<typeof db.from>, status: string, search: string) {
+  query.where('status', status)
+  if (search) {
+    query.where((builder: any) => {
+      builder.where('name', 'like', `%${search}%`).orWhere('building_name', 'like', `%${search}%`)
+      if (/^\d+$/.test(search)) {
+        builder.orWhere('itene_id', Number(search))
+      }
+    })
+  }
+  return query
+}
+
+async function countConstructions(status: string, search: string): Promise<number> {
+  const query = db.from('itene_constructions')
+  applyConstructionFilters(query, status, search)
+  const row = await query.count('* as total').first()
+  return Number(row?.total ?? 0)
+}
+
+// 空値を除いたクエリ文字列を作る（ページネーション・タブ・ソートのリンク共通化）
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const usp = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && String(value) !== '') {
+      usp.set(key, String(value))
+    }
+  }
+  return usp.toString()
+}
+
+// 各列見出し用のソートリンク。クリックで desc→asc をトグルし、矢印を出す
+function buildSortLinks(status: string, search: string, sort: SortKey, direction: 'asc' | 'desc') {
+  const links: Record<string, { href: string; arrow: string; active: boolean }> = {}
+  for (const key of Object.keys(SORT_COLUMNS) as SortKey[]) {
+    const active = sort === key
+    const nextDir = active && direction === 'desc' ? 'asc' : 'desc'
+    links[key] = {
+      href: `?${buildQuery({ status, q: search, sort: key, dir: nextDir })}`,
+      arrow: active ? (direction === 'desc' ? '↓' : '↑') : '',
+      active,
+    }
+  }
+  return links
+}
+
 async function countConstructionsByStatus() {
   const rows = await db
     .from('itene_constructions')
@@ -492,7 +583,13 @@ async function countConstructionsByStatus() {
   return { byStatus, total }
 }
 
-function buildStatusTabs(activeStatus: string, statusCounts: { byStatus: Record<string, number> }) {
+function buildStatusTabs(
+  activeStatus: string,
+  statusCounts: { byStatus: Record<string, number> },
+  search: string,
+  sort: SortKey,
+  direction: 'asc' | 'desc'
+) {
   return CONSTRUCTION_STATUS_FILTERS.map((status) => {
     const info = describeConstructionStatus(status)
     return {
@@ -501,6 +598,8 @@ function buildStatusTabs(activeStatus: string, statusCounts: { byStatus: Record<
       variant: info.variant,
       count: statusCounts.byStatus[status] ?? 0,
       isActive: status === activeStatus,
+      // タブ切替時も検索語・並び順は維持する
+      href: `?${buildQuery({ status, q: search, sort, dir: direction })}`,
     }
   })
 }

@@ -602,6 +602,67 @@ a.status-tab:hover {
 .option-none.is-unknown {
   opacity: 0.7;
 }
+/* 工事一覧の検索フォーム */
+.search-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+.search-form input[type='search'] {
+  flex: 1;
+  max-width: 380px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--gray-4);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--gray-12);
+  font-size: 14px;
+}
+.search-form input[type='search']:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+.search-form button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--gray-4);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--gray-12);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.search-form button:hover {
+  border-color: var(--gray-6);
+}
+.search-clear {
+  color: var(--gray-6);
+  font-size: 13px;
+  text-decoration: none;
+}
+.search-clear:hover {
+  color: var(--gray-12);
+  text-decoration: underline;
+}
+/* 並び替え可能な列見出し */
+.data-table th .sort-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.data-table th .sort-link:hover {
+  color: var(--gray-12);
+}
+.sort-arrow {
+  font-size: 11px;
+  color: #2563eb;
+}
 /* 午前と午後の境界（昼休憩の前後）に区切り線を引く */
 .timetable-table tbody tr.is-afternoon-start > th,
 .timetable-table tbody tr.is-afternoon-start > td {

@@ -51,23 +51,39 @@
                 <span class="status-tab-count">{{ tab.count }}</span>
               </span>
             @else
-              <a class="status-tab is-{{ tab.variant }}" href="?status={{ tab.status }}">
+              <a class="status-tab is-{{ tab.variant }}" href="{{ tab.href }}">
                 {{ tab.label }}
                 <span class="status-tab-count">{{ tab.count }}</span>
               </a>
             @end
           @end
         </nav>
+        <form class="search-form" method="get" role="search">
+          <input type="hidden" name="status" value="{{ statusFilter }}" />
+          <input type="hidden" name="sort" value="{{ sort }}" />
+          <input type="hidden" name="dir" value="{{ direction }}" />
+          <input
+            type="search"
+            name="q"
+            value="{{ search }}"
+            placeholder="工事名・物件名・工事IDで検索"
+            aria-label="工事を検索"
+          />
+          <button type="submit">検索</button>
+          @if(search)
+            <a class="search-clear" href="{{ clearSearchHref }}">クリア</a>
+          @end
+        </form>
         <div class="table-wrap">
           <table class="data-table">
             <thead>
               <tr>
-                <th>工事ID</th>
-                <th>工事名</th>
-                <th>住戸数</th>
-                <th>期間</th>
+                <th><a class="sort-link" href="{{ sortLinks.id.href }}">工事ID <span class="sort-arrow">{{ sortLinks.id.arrow }}</span></a></th>
+                <th><a class="sort-link" href="{{ sortLinks.name.href }}">工事名 <span class="sort-arrow">{{ sortLinks.name.arrow }}</span></a></th>
+                <th><a class="sort-link" href="{{ sortLinks.household.href }}">住戸数 <span class="sort-arrow">{{ sortLinks.household.arrow }}</span></a></th>
+                <th><a class="sort-link" href="{{ sortLinks.period.href }}">期間 <span class="sort-arrow">{{ sortLinks.period.arrow }}</span></a></th>
                 <th>状態</th>
-                <th>オプション申込</th>
+                <th><a class="sort-link" href="{{ sortLinks.option.href }}">オプション申込 <span class="sort-arrow">{{ sortLinks.option.arrow }}</span></a></th>
               </tr>
             </thead>
             <tbody>
@@ -115,7 +131,7 @@
             <ul class="pagination-list">
               <li>
                 @if(pagination.hasPrev)
-                  <a class="pagination-link" href="?page={{ pagination.prevPage }}&status={{ statusFilter }}" rel="prev">前へ</a>
+                  <a class="pagination-link" href="?page={{ pagination.prevPage }}&{{ baseQuery }}" rel="prev">前へ</a>
                 @else
                   <span class="pagination-link is-disabled">前へ</span>
                 @end
@@ -125,13 +141,13 @@
                   @if(page === pagination.currentPage)
                     <span class="pagination-link is-current" aria-current="page">{{ page }}</span>
                   @else
-                    <a class="pagination-link" href="?page={{ page }}&status={{ statusFilter }}">{{ page }}</a>
+                    <a class="pagination-link" href="?page={{ page }}&{{ baseQuery }}">{{ page }}</a>
                   @end
                 </li>
               @end
               <li>
                 @if(pagination.hasNext)
-                  <a class="pagination-link" href="?page={{ pagination.nextPage }}&status={{ statusFilter }}" rel="next">次へ</a>
+                  <a class="pagination-link" href="?page={{ pagination.nextPage }}&{{ baseQuery }}" rel="next">次へ</a>
                 @else
                   <span class="pagination-link is-disabled">次へ</span>
                 @end
