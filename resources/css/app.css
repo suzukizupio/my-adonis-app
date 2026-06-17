@@ -606,14 +606,28 @@ a.status-tab:hover {
 .search-form {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  flex-wrap: wrap;
   margin: 0 0 16px;
 }
+.search-box {
+  position: relative;
+  flex: 0 1 360px;
+}
+.search-box .search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: var(--gray-6);
+  pointer-events: none;
+}
 .search-form input[type='search'] {
-  flex: 1;
-  max-width: 380px;
-  height: 36px;
-  padding: 0 12px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px 0 36px;
   border: 1px solid var(--gray-4);
   border-radius: 8px;
   background: #fff;
@@ -623,20 +637,15 @@ a.status-tab:hover {
 .search-form input[type='search']:focus {
   outline: none;
   border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
+/* グローバルの button{width:100%} を打ち消してコンパクトにする */
 .search-form button {
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid var(--gray-4);
+  width: auto;
+  height: 40px;
+  padding: 0 18px;
   border-radius: 8px;
-  background: #fff;
-  color: var(--gray-12);
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-.search-form button:hover {
-  border-color: var(--gray-6);
+  font-size: 14px;
 }
 .search-clear {
   color: var(--gray-6);
