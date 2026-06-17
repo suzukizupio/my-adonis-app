@@ -50,7 +50,11 @@
           </div>
           <div>
             <dt>状態</dt>
-            <dd><span class="status-pill is-{{ construction.status_display.variant }}">{{ construction.status_display.label }}</span></dd>
+            <dd>
+              <span class="status-pill is-{{ construction.status_display.variant }}">
+                {{ construction.status_display.label }}
+              </span>
+            </dd>
           </div>
           <div>
             <dt>工事期間</dt>
@@ -123,6 +127,10 @@
             <p>作業枠</p>
             <strong>{{ metrics.workSlotCount }}</strong>
           </article>
+          <article>
+            <p>休工</p>
+            <strong>{{ metrics.holidayCount }}</strong>
+          </article>
         </div>
       </aside>
     </div>
@@ -149,6 +157,17 @@
                   <th>{{ slot.timeRange }}</th>
                   @each(cell in slot.cells)
                     <td>
+                      @each(holiday in cell.holidays)
+                        <span class="reservation-block is-holiday">
+                          <strong>{{ holiday.name }}</strong>
+                          <small>{{ holiday.timeRange }}</small>
+                          @if(holiday.occupancyCount)
+                            <span class="holiday-count" title="占有数">
+                              {{ holiday.occupancyCount }}
+                            </span>
+                          @end
+                        </span>
+                      @end
                       @each(reservation in cell.reservations)
                         <span
                           class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
@@ -156,12 +175,24 @@
                           <strong>
                             {{ reservation.roomNo }}
                             @if(reservation.hasOption)
-                              <span class="option-mark" title="オプション申込あり{{ reservation.optionItems ? '：' + reservation.optionItems : '' }}{{ reservation.optionPaid ? '（決済済み）' : '' }}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></span>
+                              <span
+                                class="option-mark"
+                                title="オプション申込あり{{
+                                  reservation.optionItems
+                                    ? '：' + reservation.optionItems
+                                    : ''
+                                }}{{ reservation.optionPaid ? '（決済済み）' : '' }}"
+                              >
+                                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                  <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                                </svg>
+                              </span>
                             @end
                           </strong>
                           <small>{{ reservation.timeRange }}</small>
                         </span>
-                      @else
+                      @end
+                      @if(cell.holidays.length === 0 && cell.reservations.length === 0)
                         <span class="timetable-empty">-</span>
                       @end
                     </td>
@@ -204,7 +235,14 @@
                   <td>{{ room.has_reservation ? 'あり' : 'なし' }}</td>
                   <td>
                     @if(room.has_option)
-                      <span class="option-mark" title="{{ room.option_paid ? '決済済み' : '申込あり' }}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></span>
+                      <span
+                        class="option-mark"
+                        title="{{ room.option_paid ? '決済済み' : '申込あり' }}"
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+                        </svg>
+                      </span>
                       {{ room.option_items || 'あり' }}
                     @else
                       -

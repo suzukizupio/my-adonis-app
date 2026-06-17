@@ -87,6 +87,14 @@ export default class IteneClient {
     return this.getJson(url)
   }
 
+  // 予約管理表の「休工」枠。部屋に紐づかない、日時範囲を占有する作業休止枠
+  async fetchHolidays(constructionId: number | string): Promise<unknown> {
+    const encodedId = encodeURIComponent(String(constructionId))
+    const url = new URL(`timetable/holidays/${encodedId}`, `${this.config.apiBaseUrl}/`)
+
+    return this.getJson(url)
+  }
+
   private async getJson(url: URL) {
     const authSession = await this.getAuthSession()
     const response = await this.fetchJson(url, authSession)

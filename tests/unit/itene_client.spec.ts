@@ -63,6 +63,23 @@ test.group('ITENE client', () => {
       TimetableReservations: [{ id: 7001 }],
     })
   })
+
+  test('loads timetable holidays for a construction', async ({ assert }) => {
+    const requests: string[] = []
+    const client = new IteneClient(
+      baseConfig(),
+      async (url) => {
+        requests.push(String(url))
+        return jsonResponse([{ id: 13465, name: '休工' }])
+      },
+      fakeTokenProvider([{ bearerToken: 'token' }])
+    )
+
+    const detail = await client.fetchHolidays(5006)
+
+    assert.deepEqual(requests, ['https://api.example.test/api/v1/timetable/holidays/5006'])
+    assert.deepEqual(detail, [{ id: 13465, name: '休工' }])
+  })
 })
 
 function baseConfig() {

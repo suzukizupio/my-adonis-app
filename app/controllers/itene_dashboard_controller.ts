@@ -38,14 +38,14 @@ export default class IteneDashboardController {
       )
     applyConstructionFilters(query, statusFilter, search)
 
-    const constructions = (
-      await query
-        // 既定は期間（開始日）の新しい順。SQLite は DESC で NULL を末尾に並べる
-        .orderBy(SORT_COLUMNS[sort], direction)
-        .orderBy('itene_id', 'desc')
-        .offset((pagination.currentPage - 1) * pagination.perPage)
-        .limit(pagination.perPage)
-    ).map((row) => ({
+    const constructionRows = await query
+      // 既定は期間（開始日）の新しい順。SQLite は DESC で NULL を末尾に並べる
+      .orderBy(SORT_COLUMNS[sort], direction)
+      .orderBy('itene_id', 'desc')
+      .offset((pagination.currentPage - 1) * pagination.perPage)
+      .limit(pagination.perPage)
+
+    const constructions = constructionRows.map((row) => ({
       ...withSyncedAtDisplay(row),
       status_display: describeConstructionStatus(row.status),
       option_display: describeOptionApplications(row.option_application_count),
@@ -118,10 +118,11 @@ export default class IteneDashboardController {
       return view.render('pages/errors/not_found')
     }
 
-    const [roomCount, reservationCount, workSlotCount] = await Promise.all([
+    const [roomCount, reservationCount, workSlotCount, holidayCount] = await Promise.all([
       countRowsFor('itene_construction_rooms', 'itene_construction_id', construction.id),
       countJoinedReservations(construction.id),
       countJoinedWorkSlots(construction.id),
+      countRowsFor('itene_construction_holidays', 'itene_construction_id', construction.id),
     ])
 
     const roomRows = await db
@@ -145,7 +146,9 @@ export default class IteneDashboardController {
       .where('itene_construction_id', construction.id)
       // 部屋番号を数値として昇順（若番順）に並べる。文字列順だと 1001 が 203 より先に来てしまう。
       // ラウンジ等の番号でない部屋は末尾にまとめる
-      .orderByRaw("CASE WHEN room_no GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(room_no AS INTEGER), room_no")
+      .orderByRaw(
+        "CASE WHEN room_no GLOB '[0-9]*' THEN 0 ELSE 1 END, CAST(room_no AS INTEGER), room_no"
+      )
 
     // 部屋ごとの「予約を入力した日時」。居住者が予約を確定した最新の reservation_date を採用する。
     // itene_created_at はレコードの一括生成日時で予約入力とは無関係のため使わない。
@@ -214,7 +217,17 @@ export default class IteneDashboardController {
       formatReservationItem(row, roomOptionByRoomId.get(row.itene_construction_room_id))
     )
 
-    const reservationTimetable = buildReservationTimetable(reservationItems, {
+    const holidayRows = await db
+      .from('itene_construction_holidays')
+      .select('name', 'start_at', 'end_at', 'occupancy_count')
+      .where('itene_construction_id', construction.id)
+      .orderBy('start_at')
+
+    const holidayItems = holidayRows
+      .map(formatHolidayItem)
+      .filter((item): item is HolidayItem => item !== null)
+
+    const reservationTimetable = buildReservationTimetable(reservationItems, holidayItems, {
       startOn: construction.whole_period_start_on,
       endOn: construction.whole_period_end_on,
       breakStartTime: construction.break_start_time,
@@ -229,9 +242,11 @@ export default class IteneDashboardController {
         roomCount,
         reservationCount,
         workSlotCount,
+        holidayCount,
       },
       rooms,
       reservations: reservationItems,
+      holidays: holidayItems,
       reservationTimetable,
       timetableColspan: reservationTimetable.dates.length + 1,
       syncStatus,
@@ -328,6 +343,16 @@ type ReservationItem = {
   optionPaid: boolean
 }
 
+type HolidayItem = {
+  name: string
+  dateKey: string
+  dateLabel: string
+  startTime: string
+  endTime: string
+  timeRange: string
+  occupancyCount: number | null
+}
+
 function formatReservationItem(
   row: Record<string, any>,
   option?: { hasOption: boolean; items: string | null; paid: boolean }
@@ -357,14 +382,31 @@ function formatReservationItem(
   }
 }
 
+function formatHolidayItem(row: Record<string, any>): HolidayItem | null {
+  const start = formatJstDateTime(row.start_at)
+  const end = formatJstDateTime(row.end_at)
+  if (start.dateKey === '-' || start.time === '-' || end.time === '-') {
+    return null
+  }
+
+  return {
+    name: row.name ? String(row.name) : '休工',
+    dateKey: start.dateKey,
+    dateLabel: start.dateLabel,
+    startTime: start.time,
+    endTime: end.time,
+    timeRange: `${start.time} - ${end.time}`,
+    occupancyCount: finiteNumber(row.occupancy_count),
+  }
+}
+
 function buildReservationTimetable(
   items: ReservationItem[],
+  holidays: HolidayItem[],
   options: { startOn?: unknown; endOn?: unknown; breakStartTime?: unknown } = {}
 ) {
-  const dates = buildTimetableDates(items, options.startOn, options.endOn)
-  const slotKeys = Array.from(
-    new Set(items.map((item) => `${item.startTime}|${item.endTime}`))
-  ).sort()
+  const dates = buildTimetableDates([...items, ...holidays], options.startOn, options.endOn)
+  const slotKeys = buildTimetableSlotKeys(items, holidays)
   // 昼休憩の開始時刻を午前／午後の境界とする（取得できなければ正午）
   const breakStart = normalizeTimeOfDay(options.breakStartTime) ?? '12:00'
   const slots = slotKeys.map((slotKey) => {
@@ -376,6 +418,13 @@ function buildReservationTimetable(
       isAfternoonStart: false,
       cells: dates.map((date) => ({
         dateKey: date.dateKey,
+        holidays: holidays
+          .filter(
+            (holiday) =>
+              holiday.dateKey === date.dateKey &&
+              timeRangesOverlap(holiday.startTime, holiday.endTime, startTime, endTime)
+          )
+          .sort(compareHolidays),
         reservations: items
           .filter(
             (item) =>
@@ -396,9 +445,30 @@ function buildReservationTimetable(
   return { dates, slots }
 }
 
+function buildTimetableSlotKeys(items: ReservationItem[], holidays: HolidayItem[]) {
+  const keys = new Set(items.map((item) => `${item.startTime}|${item.endTime}`))
+
+  for (const holiday of holidays) {
+    const overlapsExistingSlot = [...keys].some((slotKey) => {
+      const [startTime, endTime] = slotKey.split('|')
+      return timeRangesOverlap(holiday.startTime, holiday.endTime, startTime, endTime)
+    })
+
+    if (!overlapsExistingSlot) {
+      keys.add(`${holiday.startTime}|${holiday.endTime}`)
+    }
+  }
+
+  return [...keys].sort(compareSlotKeys)
+}
+
 // 工事期間の全日付（予約のない日も含む）を日付軸として組み立てる。
 // 念のため予約のある日付も和集合に加え、期間外の予約も取りこぼさないようにする
-function buildTimetableDates(items: ReservationItem[], startOn: unknown, endOn: unknown) {
+function buildTimetableDates(
+  items: Array<{ dateKey: string; dateLabel: string }>,
+  startOn: unknown,
+  endOn: unknown
+) {
   const labelByDate = new Map<string, string>()
 
   for (const period of enumerateDates(startOn, endOn)) {
@@ -478,6 +548,58 @@ function compareReservations(left: ReservationItem, right: ReservationItem) {
   )
 }
 
+function compareHolidays(left: HolidayItem, right: HolidayItem) {
+  return (
+    left.startTime.localeCompare(right.startTime) ||
+    left.endTime.localeCompare(right.endTime) ||
+    left.name.localeCompare(right.name, 'ja')
+  )
+}
+
+function compareSlotKeys(left: string, right: string) {
+  const [leftStart, leftEnd] = left.split('|')
+  const [rightStart, rightEnd] = right.split('|')
+
+  return leftStart.localeCompare(rightStart) || leftEnd.localeCompare(rightEnd)
+}
+
+function timeRangesOverlap(
+  leftStart: string,
+  leftEnd: string,
+  rightStart: string,
+  rightEnd: string
+) {
+  const leftStartMinutes = minutesOfDay(leftStart)
+  const leftEndMinutes = minutesOfDay(leftEnd)
+  const rightStartMinutes = minutesOfDay(rightStart)
+  const rightEndMinutes = minutesOfDay(rightEnd)
+
+  if (
+    leftStartMinutes === null ||
+    leftEndMinutes === null ||
+    rightStartMinutes === null ||
+    rightEndMinutes === null
+  ) {
+    return false
+  }
+
+  return leftStartMinutes < rightEndMinutes && rightStartMinutes < leftEndMinutes
+}
+
+function minutesOfDay(value: string) {
+  const match = value.match(/^(\d{2}):(\d{2})$/)
+  if (!match) {
+    return null
+  }
+
+  return Number(match[1]) * 60 + Number(match[2])
+}
+
+function finiteNumber(value: unknown) {
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
 const CONSTRUCTION_STATUS_LABELS: Record<string, { label: string; variant: string }> = {
   '0': { label: '未対応', variant: 'pending' },
   '1': { label: '対応中', variant: 'progress' },
@@ -527,7 +649,11 @@ function resolveDirection(raw: unknown): 'asc' | 'desc' {
 }
 
 // 状態フィルタ＋フリーワード検索（工事名・物件名・工事ID）を query builder に適用する
-function applyConstructionFilters(query: ReturnType<typeof db.from>, status: string, search: string) {
+function applyConstructionFilters(
+  query: ReturnType<typeof db.from>,
+  status: string,
+  search: string
+) {
   query.where('status', status)
   if (search) {
     query.where((builder: any) => {

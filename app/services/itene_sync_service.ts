@@ -71,6 +71,7 @@ export default class IteneSyncService {
       }
 
       const optionMap = await this.fetchOptionMap(constructionId)
+      const holidays = await this.fetchHolidaysSafe(constructionId)
 
       await db.transaction(async (trx) => {
         const construction = await this.upsertReservationConstruction(record, trx)
@@ -86,6 +87,11 @@ export default class IteneSyncService {
         }
 
         await this.deleteMissingRoomsForConstruction(construction.id, rooms, trx)
+
+        // 休工（部屋に紐づかない作業休止枠）。取得に成功したときだけ入れ替える
+        if (holidays !== null) {
+          await this.upsertHolidays(construction.id, holidays, trx)
+        }
 
         // 一覧で「オプション申込を受け付けている工事か」を判別できるよう、
         // 申込のある部屋数を工事レコードに保存する（list 同期では上書きされない）
@@ -203,6 +209,62 @@ export default class IteneSyncService {
     }
 
     return map
+  }
+
+  // 休工一覧を取得する。取得失敗時は null を返し、既存の休工を消さないようにする
+  private async fetchHolidaysSafe(constructionId: number | string): Promise<JsonObject[] | null> {
+    const client = this.client as IteneClient & {
+      fetchHolidays?: (constructionId: number | string) => Promise<unknown>
+    }
+
+    if (typeof client.fetchHolidays !== 'function') {
+      return null
+    }
+
+    try {
+      return toArray(await client.fetchHolidays(constructionId))
+    } catch {
+      return null
+    }
+  }
+
+  // 休工を保存する。部屋に紐づかないため工事単位で全削除→再投入する
+  private async upsertHolidays(
+    constructionLocalId: number,
+    holidays: JsonObject[],
+    client: any = db
+  ) {
+    const now = nowSql()
+
+    await client
+      .from('itene_construction_holidays')
+      .where('itene_construction_id', constructionLocalId)
+      .delete()
+
+    for (const record of holidays) {
+      const iteneHolidayId = nullableNumber(record.id)
+      if (!iteneHolidayId) {
+        continue
+      }
+
+      const payload = {
+        itene_construction_id: constructionLocalId,
+        itene_holiday_id: iteneHolidayId,
+        name: nullableString(record.name),
+        start_at: timestamp(record.startAt),
+        end_at: timestamp(record.endAt),
+        occupancy_count: nullableNumber(record.occupancyCount),
+        raw: rawJson(record),
+        last_synced_at: now,
+        updated_at: now,
+      }
+
+      await client
+        .table('itene_construction_holidays')
+        .insert({ ...payload, created_at: now })
+        .onConflict('itene_holiday_id')
+        .merge(payload)
+    }
   }
 
   private async upsertReservationConstruction(record: JsonObject, client: any = db) {
