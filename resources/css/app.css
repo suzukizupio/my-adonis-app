@@ -605,6 +605,8 @@ a.status-tab:hover {
 /* 工事一覧の検索フォーム */
 .search-form {
   display: flex;
+  /* グローバルの form{flex-direction:column} を打ち消して横並びにする */
+  flex-direction: row;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
