@@ -547,24 +547,7 @@ a.status-tab:hover {
   background: #9ca3af;
 }
 .reservation-block.is-holiday strong {
-  padding-right: 30px;
-}
-.holiday-count {
-  position: absolute;
-  top: 6px;
-  right: 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: #ec4899;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
+  padding-right: 0;
 }
 .timetable-empty {
   color: var(--gray-6);
