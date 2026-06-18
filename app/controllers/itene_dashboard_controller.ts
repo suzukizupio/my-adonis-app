@@ -99,6 +99,9 @@ export default class IteneDashboardController {
 
     const html = await view.render('pages/construction_timetable_pdf', {
       ...detail,
+      timetablePages: paginateTimetableByDate(detail.reservationTimetable),
+      timetableTimeColMm: TIMETABLE_TIME_COL_MM,
+      timetableDateColMm: TIMETABLE_DATE_COL_MM,
       exportedAt: formatJstTimestamp(new Date()),
     })
     const pdf = await renderTimetablePdf(html)
@@ -433,6 +436,42 @@ function formatHolidayItem(row: Record<string, any>): HolidayItem | null {
     timeRange: `${start.time} - ${end.time}`,
     occupancyCount: finiteNumber(row.occupancy_count),
   }
+}
+
+// PDF（A4横）でタイムテーブルを日付ごとに改ページする際のレイアウト定数（mm）
+const TIMETABLE_PAGE_WIDTH_MM = 297
+const TIMETABLE_PAGE_MARGIN_MM = 8
+const TIMETABLE_TIME_COL_MM = 20
+const TIMETABLE_DATE_COL_MM = 21
+
+type ReservationTimetable = ReturnType<typeof buildReservationTimetable>
+
+// A4横1ページの幅に収まる最大日数で日付軸を分割し、ページごとのタイムテーブルにする。
+// 各ページは全時間帯（行）を保持し、日付（列）だけをスライスするので、
+// 改ページは必ず日付の境界で起き、時間帯の途中でページが切れない。
+function paginateTimetableByDate(timetable: ReservationTimetable) {
+  const usableWidth =
+    TIMETABLE_PAGE_WIDTH_MM - TIMETABLE_PAGE_MARGIN_MM * 2 - TIMETABLE_TIME_COL_MM
+  const datesPerPage = Math.max(1, Math.floor(usableWidth / TIMETABLE_DATE_COL_MM))
+
+  const pages: Array<Pick<ReservationTimetable, 'dates' | 'slots'>> = []
+  for (let start = 0; start < timetable.dates.length; start += datesPerPage) {
+    const end = start + datesPerPage
+    pages.push({
+      dates: timetable.dates.slice(start, end),
+      slots: timetable.slots.map((slot) => ({
+        ...slot,
+        cells: slot.cells.slice(start, end),
+      })),
+    })
+  }
+
+  // 日付が無いときも1ページ返し、テンプレート側の「予約データなし」表示に委ねる
+  if (pages.length === 0) {
+    pages.push({ dates: timetable.dates, slots: timetable.slots })
+  }
+
+  return pages
 }
 
 function buildReservationTimetable(

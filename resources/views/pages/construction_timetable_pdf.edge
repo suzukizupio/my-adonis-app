@@ -24,6 +24,12 @@
         line-height: 1.35;
       }
 
+      /* 1ページ＝特定の日付範囲。2ページ目以降は必ず日付の境界で改ページする */
+      .timetable-page:not(:first-child) {
+        break-before: page;
+        page-break-before: always;
+      }
+
       .pdf-header {
         display: flex;
         align-items: flex-start;
@@ -67,9 +73,18 @@
       }
 
       .timetable-table {
-        width: 100%;
         border-collapse: collapse;
         table-layout: fixed;
+      }
+
+      /* 縦に溢れた場合も各印刷ページの先頭に日付ヘッダーを繰り返す */
+      .timetable-table thead {
+        display: table-header-group;
+      }
+
+      /* 時間帯の行はページ境界で分断せず、行ごと次ページへ送る */
+      .timetable-table tbody tr {
+        break-inside: avoid;
       }
 
       .timetable-table th,
@@ -85,11 +100,6 @@
         color: #374151;
         font-size: 7pt;
         font-weight: 700;
-      }
-
-      .timetable-table thead th:first-child,
-      .timetable-table tbody th {
-        width: 20mm;
       }
 
       .timetable-table tbody th {
@@ -184,86 +194,103 @@
     </style>
   </head>
   <body>
-    <header class="pdf-header">
-      <div class="pdf-title">
-        <p>Timetable</p>
-        <h1>
-          {{
-            construction.building_name ||
-            construction.name ||
-            construction.code ||
-            '工事詳細'
-          }}
-        </h1>
-      </div>
-      <dl class="pdf-meta">
-        <dt>工事ID</dt>
-        <dd>{{ construction.itene_id }}</dd>
-        <dt>工事期間</dt>
-        <dd>
-          {{ construction.whole_period_start_on || '-' }}
-          /
-          {{ construction.whole_period_end_on || '-' }}
-        </dd>
-        <dt>作業時間</dt>
-        <dd>{{ construction.work_start_time || '-' }} - {{ construction.work_end_time || '-' }}</dd>
-        <dt>出力日時</dt>
-        <dd>{{ exportedAt }}</dd>
-      </dl>
-    </header>
-
-    <table class="timetable-table">
-      <thead>
-        <tr>
-          <th>時間</th>
-          @each(date in reservationTimetable.dates)
-            <th>{{ date.dateLabel }}</th>
-          @end
-        </tr>
-      </thead>
-      <tbody>
-        @each(slot in reservationTimetable.slots)
-          <tr class="{{ slot.isAfternoonStart ? 'is-afternoon-start' : '' }}">
-            <th>{{ slot.timeRange }}</th>
-            @each(cell in slot.cells)
-              <td>
-                @each(holiday in cell.holidays)
-                  <span class="reservation-block is-holiday">
-                    <strong>{{ holiday.name }}</strong>
-                    <small>{{ holiday.timeRange }}</small>
-                  </span>
-                @end
-                @each(reservation in cell.reservations)
-                  <span
-                    class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
-                  >
-                    <strong>
-                      {{ reservation.roomNo }}
-                      @if(reservation.hasOption)
-                        <span class="option-label">OP</span>
-                      @end
-                    </strong>
-                    <small>{{ reservation.timeRange }}</small>
-                  </span>
-                @end
-                @if(cell.holidays.length === 0 && cell.reservations.length === 0)
-                  <span class="timetable-empty">-</span>
-                @end
-              </td>
+    @each((page, pageIndex) in timetablePages)
+      <section class="timetable-page">
+        <header class="pdf-header">
+          <div class="pdf-title">
+            <p>Timetable</p>
+            <h1>
+              {{
+                construction.building_name ||
+                construction.name ||
+                construction.code ||
+                '工事詳細'
+              }}
+            </h1>
+          </div>
+          <dl class="pdf-meta">
+            <dt>工事ID</dt>
+            <dd>{{ construction.itene_id }}</dd>
+            <dt>工事期間</dt>
+            <dd>
+              {{ construction.whole_period_start_on || '-' }}
+              /
+              {{ construction.whole_period_end_on || '-' }}
+            </dd>
+            <dt>作業時間</dt>
+            <dd>{{ construction.work_start_time || '-' }} - {{ construction.work_end_time || '-' }}</dd>
+            <dt>出力日時</dt>
+            <dd>{{ exportedAt }}</dd>
+            @if(timetablePages.length > 1)
+              <dt>ページ</dt>
+              <dd>{{ pageIndex + 1 }} / {{ timetablePages.length }}</dd>
             @end
-          </tr>
-        @else
-          <tr>
-            <td colspan="{{ reservationTimetable.dates.length + 1 }}">予約データはありません</td>
-          </tr>
-        @end
-      </tbody>
-    </table>
+          </dl>
+        </header>
 
-    <footer class="pdf-footer">
-      <span>青: 予約</span>
-      <span>灰: 休工</span>
-      <span>OP: オプション申込あり</span>
-    </footer>
+        <table
+          class="timetable-table"
+          style="width: {{ timetableTimeColMm + timetableDateColMm * page.dates.length }}mm"
+        >
+          <colgroup>
+            <col style="width: {{ timetableTimeColMm }}mm" />
+            @each(date in page.dates)
+              <col style="width: {{ timetableDateColMm }}mm" />
+            @end
+          </colgroup>
+          <thead>
+            <tr>
+              <th>時間</th>
+              @each(date in page.dates)
+                <th>{{ date.dateLabel }}</th>
+              @end
+            </tr>
+          </thead>
+          <tbody>
+            @each(slot in page.slots)
+              <tr class="{{ slot.isAfternoonStart ? 'is-afternoon-start' : '' }}">
+                <th>{{ slot.timeRange }}</th>
+                @each(cell in slot.cells)
+                  <td>
+                    @each(holiday in cell.holidays)
+                      <span class="reservation-block is-holiday">
+                        <strong>{{ holiday.name }}</strong>
+                        <small>{{ holiday.timeRange }}</small>
+                      </span>
+                    @end
+                    @each(reservation in cell.reservations)
+                      <span
+                        class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
+                      >
+                        <strong>
+                          {{ reservation.roomNo }}
+                          @if(reservation.hasOption)
+                            <span class="option-label">OP</span>
+                          @end
+                        </strong>
+                        <small>{{ reservation.timeRange }}</small>
+                      </span>
+                    @end
+                    @if(cell.holidays.length === 0 && cell.reservations.length === 0)
+                      <span class="timetable-empty">-</span>
+                    @end
+                  </td>
+                @end
+              </tr>
+            @else
+              <tr>
+                <td colspan="{{ page.dates.length + 1 }}">予約データはありません</td>
+              </tr>
+            @end
+          </tbody>
+        </table>
+
+        <footer class="pdf-footer">
+          <span>青: 予約</span>
+          <span>灰: 休工</span>
+          <span>OP: オプション申込あり</span>
+        </footer>
+      </section>
+    @end
   </body>
 </html>
