@@ -99,9 +99,9 @@ export default class IteneDashboardController {
 
     const html = await view.render('pages/construction_timetable_pdf', {
       ...detail,
-      timetablePages: paginateTimetableByDate(detail.reservationTimetable),
-      timetableTimeColMm: TIMETABLE_TIME_COL_MM,
-      timetableDateColMm: TIMETABLE_DATE_COL_MM,
+      timetableChunks: buildTimetableChunks(detail.reservationTimetable),
+      timetableDateLabelColMm: TIMETABLE_DATE_LABEL_COL_MM,
+      timetableSlotColMm: TIMETABLE_SLOT_COL_MM,
       exportedAt: formatJstTimestamp(new Date()),
     })
     const pdf = await renderTimetablePdf(html)
@@ -438,40 +438,53 @@ function formatHolidayItem(row: Record<string, any>): HolidayItem | null {
   }
 }
 
-// PDF（A4横）でタイムテーブルを日付ごとに改ページする際のレイアウト定数（mm）
+// PDF（A4横）でタイムテーブルを描画する際のレイアウト定数（mm）。
+// 行＝日付・列＝時間帯に転置し、日付を縦に流すことで改ページが日付の境界で起きる。
 const TIMETABLE_PAGE_WIDTH_MM = 297
 const TIMETABLE_PAGE_MARGIN_MM = 8
-const TIMETABLE_TIME_COL_MM = 20
-const TIMETABLE_DATE_COL_MM = 21
+const TIMETABLE_DATE_LABEL_COL_MM = 28
+const TIMETABLE_SLOT_COL_MM = 22
 
 type ReservationTimetable = ReturnType<typeof buildReservationTimetable>
+type TimetableCell = ReservationTimetable['slots'][number]['cells'][number]
 
-// A4横1ページの幅に収まる最大日数で日付軸を分割し、ページごとのタイムテーブルにする。
-// 各ページは全時間帯（行）を保持し、日付（列）だけをスライスするので、
-// 改ページは必ず日付の境界で起き、時間帯の途中でページが切れない。
-function paginateTimetableByDate(timetable: ReservationTimetable) {
+// 時間帯（列）を横1ページ幅に収まる本数ごとに区切り、各区切りを1つのテーブルにする。
+// 各テーブルは全日付を行として持ち、日付が縦に流れる。Chromiumの縦方向の自動改ページが
+// 日付行の境界（tbody tr の break-inside: avoid）で起きるため、時間帯の途中では切れない。
+// 時間帯が横幅に収まりきらない場合だけ、時間帯方向に区切られた複数テーブルになる。
+function buildTimetableChunks(timetable: ReservationTimetable) {
   const usableWidth =
-    TIMETABLE_PAGE_WIDTH_MM - TIMETABLE_PAGE_MARGIN_MM * 2 - TIMETABLE_TIME_COL_MM
-  const datesPerPage = Math.max(1, Math.floor(usableWidth / TIMETABLE_DATE_COL_MM))
+    TIMETABLE_PAGE_WIDTH_MM - TIMETABLE_PAGE_MARGIN_MM * 2 - TIMETABLE_DATE_LABEL_COL_MM
+  const slotsPerChunk = Math.max(1, Math.floor(usableWidth / TIMETABLE_SLOT_COL_MM))
 
-  const pages: Array<Pick<ReservationTimetable, 'dates' | 'slots'>> = []
-  for (let start = 0; start < timetable.dates.length; start += datesPerPage) {
-    const end = start + datesPerPage
-    pages.push({
-      dates: timetable.dates.slice(start, end),
-      slots: timetable.slots.map((slot) => ({
-        ...slot,
-        cells: slot.cells.slice(start, end),
+  const chunks: Array<{
+    slots: Array<{ timeRange: string; isAfternoonStart: boolean }>
+    rows: Array<{ dateLabel: string; cells: Array<TimetableCell & { isAfternoonStart: boolean }> }>
+  }> = []
+
+  for (let start = 0; start < timetable.slots.length; start += slotsPerChunk) {
+    const slotSlice = timetable.slots.slice(start, start + slotsPerChunk)
+    chunks.push({
+      slots: slotSlice.map((slot) => ({
+        timeRange: slot.timeRange,
+        isAfternoonStart: slot.isAfternoonStart,
+      })),
+      rows: timetable.dates.map((date, dateIndex) => ({
+        dateLabel: date.dateLabel,
+        cells: slotSlice.map((slot) => ({
+          ...slot.cells[dateIndex],
+          isAfternoonStart: slot.isAfternoonStart,
+        })),
       })),
     })
   }
 
-  // 日付が無いときも1ページ返し、テンプレート側の「予約データなし」表示に委ねる
-  if (pages.length === 0) {
-    pages.push({ dates: timetable.dates, slots: timetable.slots })
+  // 時間帯が無いときも1テーブル返し、テンプレート側の「予約データなし」表示に委ねる
+  if (chunks.length === 0) {
+    chunks.push({ slots: [], rows: [] })
   }
 
-  return pages
+  return chunks
 }
 
 function buildReservationTimetable(

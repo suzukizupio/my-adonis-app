@@ -24,7 +24,7 @@
         line-height: 1.35;
       }
 
-      /* 1ページ＝特定の日付範囲。2ページ目以降は必ず日付の境界で改ページする */
+      /* 時間帯チャンク（横幅に収まらず分割した場合）の区切りで改ページする */
       .timetable-page:not(:first-child) {
         break-before: page;
         page-break-before: always;
@@ -77,12 +77,12 @@
         table-layout: fixed;
       }
 
-      /* 縦に溢れた場合も各印刷ページの先頭に日付ヘッダーを繰り返す */
+      /* 縦に溢れて改ページされても、各印刷ページの先頭に時間帯の見出し行を繰り返す */
       .timetable-table thead {
         display: table-header-group;
       }
 
-      /* 時間帯の行はページ境界で分断せず、行ごと次ページへ送る */
+      /* 日付の行はページ境界で分断せず、行ごと次ページへ送る（＝改ページは必ず日付境界） */
       .timetable-table tbody tr {
         break-inside: avoid;
       }
@@ -102,28 +102,32 @@
         font-weight: 700;
       }
 
+      .timetable-table thead th:first-child {
+        text-align: center;
+      }
+
+      /* 左端の日付見出し列 */
       .timetable-table tbody th {
         color: #374151;
         font-size: 7pt;
         font-weight: 700;
         white-space: nowrap;
+        text-align: center;
+        vertical-align: middle;
+        background: #f8fafc;
       }
 
-      .timetable-table tbody td {
-        min-height: 12mm;
-      }
-
-      .timetable-table tbody tr.is-afternoon-start > th,
-      .timetable-table tbody tr.is-afternoon-start > td {
-        border-top: 1.3pt solid #374151;
+      /* 午前→午後（昼休憩）の境界となる時間帯列の左に縦の区切り線を入れる */
+      .timetable-table .is-afternoon-start-col {
+        border-left: 1.3pt solid #374151;
       }
 
       .reservation-block {
         display: block;
         break-inside: avoid;
-        min-height: 10.5mm;
+        min-height: 8.5mm;
         margin-bottom: 1.2mm;
-        padding: 1.5mm 1.8mm;
+        padding: 1.3mm 1.5mm;
         border: 0.75pt solid #1b4f8a;
         border-radius: 1.8mm;
         background: #1f6fb2;
@@ -142,9 +146,9 @@
 
       .reservation-block small {
         display: block;
-        margin-top: 0.8mm;
+        margin-top: 0.6mm;
         color: rgba(255, 255, 255, 0.88);
-        font-size: 6.8pt;
+        font-size: 6.4pt;
       }
 
       .reservation-block.is-holiday {
@@ -194,7 +198,7 @@
     </style>
   </head>
   <body>
-    @each((page, pageIndex) in timetablePages)
+    @each((chunk, chunkIndex) in timetableChunks)
       <section class="timetable-page">
         <header class="pdf-header">
           <div class="pdf-title">
@@ -221,66 +225,70 @@
             <dd>{{ construction.work_start_time || '-' }} - {{ construction.work_end_time || '-' }}</dd>
             <dt>出力日時</dt>
             <dd>{{ exportedAt }}</dd>
-            @if(timetablePages.length > 1)
-              <dt>ページ</dt>
-              <dd>{{ pageIndex + 1 }} / {{ timetablePages.length }}</dd>
+            @if(timetableChunks.length > 1)
+              <dt>時間帯グループ</dt>
+              <dd>{{ chunkIndex + 1 }} / {{ timetableChunks.length }}</dd>
             @end
           </dl>
         </header>
 
         <table
           class="timetable-table"
-          style="width: {{ timetableTimeColMm + timetableDateColMm * page.dates.length }}mm"
+          style="width: {{ timetableDateLabelColMm + timetableSlotColMm * chunk.slots.length }}mm"
         >
           <colgroup>
-            <col style="width: {{ timetableTimeColMm }}mm" />
-            @each(date in page.dates)
-              <col style="width: {{ timetableDateColMm }}mm" />
+            <col style="width: {{ timetableDateLabelColMm }}mm" />
+            @each(slot in chunk.slots)
+              <col style="width: {{ timetableSlotColMm }}mm" />
             @end
           </colgroup>
           <thead>
             <tr>
-              <th>時間</th>
-              @each(date in page.dates)
-                <th>{{ date.dateLabel }}</th>
+              <th>日付</th>
+              @each(slot in chunk.slots)
+                <th class="{{ slot.isAfternoonStart ? 'is-afternoon-start-col' : '' }}">
+                  {{ slot.timeRange }}
+                </th>
               @end
             </tr>
           </thead>
           <tbody>
-            @each(slot in page.slots)
-              <tr class="{{ slot.isAfternoonStart ? 'is-afternoon-start' : '' }}">
-                <th>{{ slot.timeRange }}</th>
-                @each(cell in slot.cells)
-                  <td>
-                    @each(holiday in cell.holidays)
-                      <span class="reservation-block is-holiday">
-                        <strong>{{ holiday.name }}</strong>
-                        <small>{{ holiday.timeRange }}</small>
-                      </span>
-                    @end
-                    @each(reservation in cell.reservations)
-                      <span
-                        class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
-                      >
-                        <strong>
-                          {{ reservation.roomNo }}
-                          @if(reservation.hasOption)
-                            <span class="option-label">OP</span>
-                          @end
-                        </strong>
-                        <small>{{ reservation.timeRange }}</small>
-                      </span>
-                    @end
-                    @if(cell.holidays.length === 0 && cell.reservations.length === 0)
-                      <span class="timetable-empty">-</span>
-                    @end
-                  </td>
-                @end
+            @if(chunk.slots.length === 0)
+              <tr>
+                <td>予約データはありません</td>
               </tr>
             @else
-              <tr>
-                <td colspan="{{ page.dates.length + 1 }}">予約データはありません</td>
-              </tr>
+              @each(row in chunk.rows)
+                <tr>
+                  <th>{{ row.dateLabel }}</th>
+                  @each(cell in row.cells)
+                    <td class="{{ cell.isAfternoonStart ? 'is-afternoon-start-col' : '' }}">
+                      @each(holiday in cell.holidays)
+                        <span class="reservation-block is-holiday">
+                          <strong>{{ holiday.name }}</strong>
+                          <small>{{ holiday.timeRange }}</small>
+                        </span>
+                      @end
+                      @each(reservation in cell.reservations)
+                        <span
+                          class="reservation-block {{ reservation.additionalFlag ? 'is-additional' : '' }} {{ reservation.lockRoomOwner ? 'is-locked' : '' }}"
+                        >
+                          <strong>
+                            {{ reservation.roomNo }}
+                            @if(reservation.hasOption)
+                              <span class="option-label">OP</span>
+                            @end
+                          </strong>
+                          <small>{{ reservation.timeRange }}</small>
+                        </span>
+                      @end
+                      @if(cell.holidays.length === 0 && cell.reservations.length === 0)
+                        <span class="timetable-empty">-</span>
+                      @end
+                    </td>
+                  @end
+                </tr>
+              @end
             @end
           </tbody>
         </table>
