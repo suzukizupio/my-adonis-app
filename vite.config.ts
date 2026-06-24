@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite'
 import adonisjs from '@adonisjs/vite/client'
 
+// Native fs.watch is unreliable on this Windows A: drive.
+process.env.CHOKIDAR_USEPOLLING ??= 'true'
+
 export default defineConfig({
   plugins: [
     adonisjs({
@@ -20,6 +23,7 @@ export default defineConfig({
   server: {
     watch: {
       ignored: ['**/storage/**', '**/tmp/**'],
+      usePolling: true,
     },
   },
 })
